@@ -494,9 +494,9 @@ function gmailBody(id) {
 const gmailLink = m => `https://mail.google.com/mail/u/0/#all/${m.threadId}`;
 const senderName = f => (/^\s*"?([^"<]+?)"?\s*</.exec(f) || [, f])[1].trim();
 
-const REJECT = /unfortunately|not (to )?(move|moving|proceed|progress)\w* (forward|further|ahead)|decided (not )?to (move forward|proceed|pursue|go ahead|continue) with (other|another|a different)|not been (selected|successful|shortlisted)|no longer (be )?consider|(position|role|vacancy) has (now )?been filled|will not be (moving|progressing|proceeding|taking)|won'?t be (moving|progressing|proceeding)|regret to|other candidates (whose|who)|not (be )?able to (offer|move)|not the right (fit|match)|declin(e|ed) your application|(rejected|reject) your application/i;
+const REJECT = /unfortunately|not (to )?(move|moving|proceed|progress)\w* (forward|further|ahead)|decided (not )?to (move forward|proceed|pursue|go ahead|continue) with (other|another|a different)|not been (selected|successful|shortlisted)|no longer (be )?consider|(position|role|vacancy) has (now )?been filled|will not be (moving|progressing|proceeding|taking)|won'?t be (moving|progressing|proceeding)|regret to|other candidates (whose|who)|not (be )?able to (offer|move)|not the right (fit|match)|declin(e|ed) your application|(rejected|reject) your application|sorry to (let you know|inform you|say)|we (will|won'?t|will not) not? ?be (moving|progressing|proceeding|taking) (forward|your application)|not (to )?progress(ing)? (with )?your application|decided not to (proceed|progress|move)|(pursue|proceed with) other candidates|we are unable to (offer|proceed|move)/i;
 const STRONG_INVITE = /schedul\w* (a |an |the |your )?(call|chat|interview|meeting|time)|calendly\.com|book a (time|slot|call)|your availability|invite you to (an? )?(interview|call|chat)|phone screen|screening call|take[- ]home|test (task|assignment)|coding (challenge|assessment)|technical (interview|assessment)/i;
-const CONFIRM = /thank(s| you) for (applying|your application|your interest)|application (was |has been )?(sent|received|submitted)|we('ve| have) received your application|your application to/i;
+const CONFIRM = /thank(s| you) for (applying|your application|your interest)|application (was |has been )?(sent|received|submitted)|we('ve| have)? received your application|your application (to|for) .{0,80}(received|submitted|is being reviewed)|reviewing (all |your )?applications?/i;
 const INVITE = /interview|next steps? (is|would be|will be)|would (love|like) to (chat|talk|speak|connect)|(chat|call|talk) with (you|me|us)|move (you )?forward/i;
 function classify(m) {
   const t = m.subject + ' ' + m.snippet;
@@ -505,6 +505,13 @@ function classify(m) {
   if (CONFIRM.test(t)) return 'confirm';
   if (INVITE.test(t)) return 'invite';
   return 'other';
+}
+// Snippets are short and often stop before the verdict, so read the start of the body too.
+async function classifyDeep(m) {
+  if (m.deep) return m;
+  try { const body = await gmailBody(m.id); m.kind = classify({ subject: m.subject, snippet: body.slice(0, 2500) }); m.deep = true; }
+  catch (e) { if (e instanceof AuthError) throw e; }
+  return m;
 }
 const KIND_BADGE = { reject: ['reject', 'Rejection?'], invite: ['invite', 'Invitation?'], confirm: ['', 'Confirmation'], other: ['', 'Other'] };
 
@@ -554,6 +561,7 @@ async function scanInbox() {
     const ids = await gmailSearch(q, 150);
     const metas = await pool(ids, gmailMeta);
     inbox = metas.map(m => ({ ...m, job_id: mailRows.get(m.id)?.job_id || matchJob(m)?.id || '' }));
+    await pool(inbox.filter(m => m.job_id && !mailRows.has(m.id)), classifyDeep, 6);
     inboxState = 'done';
   } catch (e) {
     inboxState = 'error'; inboxError = e.message;
@@ -827,7 +835,8 @@ async function loadJobMail() {
     const fullQ = q && (since ? `${q} after:${gmailDay(new Date(since.getTime() - 864e5))}` : q);
     const ids = new Set(fullQ ? await gmailSearch(fullQ + ' -from:me', 30) : []);
     for (const [mid, r] of mailRows) if (r.job_id === id && r.verdict !== 'dismissed') ids.add(mid);
-    const list = (await pool([...ids], gmailMeta)).map(m => ({ ...m, job_id: id }));
+    const list = (await pool([...ids], gmailMeta)).map(m => inbox.find(i => i.id === m.id) || { ...m, job_id: id });
+    await pool(list.filter(m => !mailRows.has(m.id)), classifyDeep, 6);
     list.forEach(m => { const x = inbox.find(i => i.id === m.id); if (!x) inbox.push(m); });
     if (openId === id) { jobMail = { id, list, error: '', q: fullQ }; renderFeed(); }
   } catch (e) { if (openId === id) { jobMail = { id, list: null, error: e.message }; renderFeed(); } }
