@@ -1,0 +1,962 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/client; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; connect-src https://*.googleapis.com https://accounts.google.com; frame-src https://accounts.google.com; img-src 'self' data:">
+<title>Job Kanban</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230c66e4'/><path d='M8 8h4v16H8zM14 8h4v10h-4zM20 8h4v6h-4z' fill='white'/></svg>">
+<style>
+:root{
+  --bg:#f7f8f9;--panel:#fff;--panel2:#f1f2f4;--text:#172b4d;--muted:#626f86;--border:#dcdfe4;
+  --brand:#0c66e4;--brand-soft:#e9f2ff;--hover:#f1f2f4;--money:#216e4e;--gold:#a54800;--gold-soft:#fff3eb;
+  --red:#c9372c;--red-soft:#ffeceb;--green:#216e4e;--green-soft:#dcfff1;
+  --shadow:0 1px 1px #091e4240,0 0 1px #091e424f;--shadow2:0 8px 24px #091e4233;--sidebar:220px;
+}
+[data-theme=dark]{
+  --bg:#1d2125;--panel:#22272b;--panel2:#2c333a;--text:#dee4ea;--muted:#9fadbc;--border:#38414a;
+  --brand:#579dff;--brand-soft:#1c2b41;--hover:#2c333a;--money:#7ee2b8;--gold:#fea362;--gold-soft:#3a2a1c;
+  --red:#fd9891;--red-soft:#42221f;--green:#7ee2b8;--green-soft:#1c3329;
+  --shadow:0 0 0 1px #38414a;--shadow2:0 8px 24px #0008;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;height:100%}
+body{font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text)}
+a{color:var(--brand);text-decoration:none}a:hover{text-decoration:underline}
+button,input,select,textarea{font:inherit;color:inherit}
+.app{display:grid;grid-template-columns:var(--sidebar) minmax(0,1fr);grid-template-rows:56px minmax(0,1fr);height:100vh}
+header{grid-column:1/3;display:flex;align-items:center;gap:16px;padding:0 16px;background:var(--panel);border-bottom:1px solid var(--border);z-index:5}
+.logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:16px;width:calc(var(--sidebar) - 32px);flex:none}
+.logo i{width:28px;height:28px;border-radius:7px;background:var(--brand);display:grid;place-items:center;color:#fff;font-style:normal;font-weight:800}
+.gsearch{flex:1;max-width:560px;position:relative}
+.gsearch input{width:100%;padding:8px 12px 8px 34px;border:1px solid var(--border);border-radius:6px;background:var(--panel2)}
+.gsearch input:focus{outline:2px solid var(--brand);background:var(--panel)}
+.gsearch:before{content:"⌕";position:absolute;left:11px;top:5px;font-size:18px;color:var(--muted)}
+.hright{margin-left:auto;display:flex;align-items:center;gap:8px}
+.iconbtn{border:0;background:transparent;border-radius:6px;padding:6px 8px;cursor:pointer;font-size:16px}
+.iconbtn:hover{background:var(--hover)}
+nav{background:var(--panel);border-right:1px solid var(--border);padding:16px 8px;overflow:auto}
+nav .sect{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;padding:12px 12px 6px}
+nav a{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:6px;color:var(--text);font-weight:500;cursor:pointer}
+nav a:hover{background:var(--hover);text-decoration:none}
+nav a.active{background:var(--brand-soft);color:var(--brand)}
+nav a .n{margin-left:auto;font-size:12px;color:var(--muted);font-weight:400}
+nav a .n.hot{background:var(--brand);color:#fff;border-radius:10px;padding:0 7px;font-weight:700}
+nav .foot{padding:12px;color:var(--muted);font-size:12px}
+main{overflow:auto;padding:20px 24px 48px;display:flex;flex-direction:column;min-height:0}
+h1{font-size:22px;margin:0 0 12px}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px}
+.toolbar select{padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--panel);cursor:pointer}
+.btn{padding:6px 12px;border:1px solid var(--border);background:var(--panel);border-radius:6px;cursor:pointer;font-weight:500}
+.btn:hover{background:var(--hover)}.btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+.btn:disabled{opacity:.6;cursor:default}
+.btn.sm{padding:2px 8px;font-size:12px}
+.chip{padding:5px 10px;border-radius:16px;border:1px solid var(--border);background:var(--panel);cursor:pointer;font-size:13px}
+.chip.on{background:var(--brand-soft);border-color:var(--brand);color:var(--brand);font-weight:600}
+.count{color:var(--muted);font-size:13px;margin-left:auto}
+.muted,.meta{color:var(--muted)}.meta{font-size:12px}
+.lozenge{display:inline-block;font-size:11px;font-weight:700;text-transform:uppercase;padding:1px 6px;border-radius:3px;background:var(--panel2);color:var(--muted);white-space:nowrap}
+.lozenge.reject{background:var(--red-soft);color:var(--red)}.lozenge.invite{background:var(--green-soft);color:var(--green)}
+.lozenge.blue{background:var(--brand-soft);color:var(--brand)}
+
+/* board */
+.board{display:flex;gap:10px;overflow-x:auto;align-items:stretch;flex:1;min-height:420px;padding-bottom:6px}
+.col{flex:0 0 264px;background:var(--panel2);border-radius:8px;padding:8px;overflow-y:auto;display:flex;flex-direction:column}
+.col.over{outline:2px dashed var(--brand);outline-offset:-2px}
+.col h4{margin:4px 6px 10px;font-size:12px;text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between;letter-spacing:.03em}
+.col .drop{flex:1;min-height:60px}
+.icard{background:var(--panel);border-radius:6px;box-shadow:var(--shadow);padding:10px 12px;margin-bottom:8px;cursor:pointer}
+.icard:hover{background:var(--hover)}
+.icard.dragging{opacity:.4}.icard.saving{opacity:.5}
+.co{font-weight:600}.role{margin:2px 0}
+.money{color:var(--money);font-size:12px;font-weight:600}.money.none{color:var(--muted);font-weight:400}
+.tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
+.tag{font-size:11px;border-radius:3px;padding:1px 6px;background:var(--panel2);color:var(--muted)}
+.tag.gold{background:var(--gold-soft);color:var(--gold);font-weight:600}
+.tag.blue{background:var(--brand-soft);color:var(--brand)}
+.note{font-size:12px;background:var(--panel2);border-radius:6px;padding:3px 6px;margin-top:6px;white-space:pre-wrap;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical}
+.actions{display:flex;gap:8px;align-items:center;margin-top:6px;font-size:12px}
+select.st{font-size:12px;padding:1px 4px;border:1px solid var(--border);border-radius:4px;background:var(--panel)}
+.sugg{margin-top:6px;border-radius:6px;padding:5px 7px;font-size:12px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.sugg.reject{background:var(--red-soft);color:var(--red)}.sugg.invite{background:var(--green-soft);color:var(--green)}
+.sugg span{flex:1 1 100%}
+.sugg button{border:1px solid currentColor;background:transparent;color:inherit;border-radius:4px;padding:0 6px;cursor:pointer;font-size:12px}
+
+/* list + inbox */
+table.list{width:100%;border-collapse:collapse;background:var(--panel);border-radius:8px;overflow:hidden;box-shadow:var(--shadow)}
+table.list th{text-align:left;font-size:12px;color:var(--muted);font-weight:600;padding:10px 12px;border-bottom:2px solid var(--border);cursor:pointer;user-select:none;white-space:nowrap;position:sticky;top:-20px;background:var(--panel)}
+table.list td{padding:8px 12px;border-bottom:1px solid var(--border);vertical-align:top;font-size:13px}
+table.list tr.row:hover td{background:var(--hover);cursor:pointer}
+.inbox td.subj{max-width:520px}.inbox .snip{color:var(--muted);font-size:12px;margin-top:2px}
+.inbox select{max-width:220px;font-size:12px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;background:var(--panel)}
+.inbox .acts{display:flex;gap:6px;flex-wrap:wrap}
+
+/* drawer */
+.drawer-bg{position:fixed;inset:0;background:#091e4240;opacity:0;pointer-events:none;transition:opacity .15s;z-index:20}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(940px,96vw);background:var(--panel);box-shadow:var(--shadow2);transform:translateX(100%);transition:transform .2s;z-index:21;display:flex;flex-direction:column}
+.dopen .drawer{transform:none}.dopen .drawer-bg{opacity:1;pointer-events:auto}
+.dhead{display:flex;align-items:flex-start;gap:12px;padding:14px 20px;border-bottom:1px solid var(--border)}
+.dhead h2{margin:0;font-size:20px}
+.dbody{flex:1;overflow:auto;display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:24px;padding:16px 20px 40px}
+.side dl{margin:0;display:grid;grid-template-columns:96px 1fr;gap:8px;font-size:13px}
+.side dt{color:var(--muted)}.side dd{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.side .box{border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:12px}
+.side .box h5{margin:0 0 8px;font-size:12px;color:var(--muted);text-transform:uppercase}
+.side input{width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--panel)}
+.tabs{display:flex;gap:4px;border-bottom:2px solid var(--border);margin-bottom:12px;align-items:center}
+.tabs button{border:0;background:none;padding:8px 12px;cursor:pointer;color:var(--muted);font-weight:600;border-bottom:2px solid transparent;margin-bottom:-2px}
+.tabs button.on{color:var(--brand);border-color:var(--brand)}
+.tabs .order{margin-left:auto;font-weight:400;font-size:12px}
+.composer,.item{display:grid;grid-template-columns:32px minmax(0,1fr);gap:10px}
+.avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#6e5dc6,#0c66e4);color:#fff;display:grid;place-items:center;font-weight:700;font-size:12px}
+.avatar.sys{background:var(--panel2);color:var(--muted)}
+.avatar.mail{background:var(--green-soft);color:var(--green)}
+.composer textarea,.item textarea{width:100%;min-height:80px;border:1px solid var(--border);background:var(--panel);border-radius:6px;padding:8px;resize:vertical}
+.composer.idle textarea{min-height:38px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px}
+.composer.idle .bar{display:none}
+.bar select{padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--panel)}
+.feed{margin:12px 0 0;padding:0;list-style:none}
+.item{padding:10px 0}
+.item .who{font-size:13px}.item .who b{margin-right:6px}
+.item .text{margin-top:4px;white-space:pre-wrap;overflow-wrap:anywhere}
+.item .links{margin-top:6px;display:flex;gap:12px;font-size:12px}
+.item .links button{border:none;background:none;padding:0;color:var(--muted);font-size:12px;cursor:pointer}
+.item .links button:hover{color:var(--brand);text-decoration:underline}
+.item .file{display:inline-flex;gap:6px;align-items:center;margin-top:6px;border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:13px}
+.kind{font-size:11px;border-radius:3px;padding:1px 6px;font-weight:700;text-transform:uppercase;background:var(--panel2);color:var(--muted)}
+.kind.cover{background:var(--brand-soft);color:var(--brand)}.kind.reply{background:var(--green-soft);color:var(--green)}
+.hist{font-size:13px;color:var(--muted)}.hist b{color:var(--text)}
+pre.body{white-space:pre-wrap;overflow-wrap:anywhere;font:13px/1.5 inherit;background:var(--panel2);border-radius:6px;padding:10px;max-height:420px;overflow:auto;margin:6px 0 0}
+
+/* gate + toast */
+.gate{max-width:460px;margin:12vh auto;background:var(--panel);box-shadow:var(--shadow2);border-radius:12px;padding:28px}
+.gate h2{margin:0 0 8px}.gate p{color:var(--muted)}
+.gate input{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--panel);margin:8px 0}
+.banner{background:var(--gold-soft);color:var(--gold);border-radius:8px;padding:8px 12px;margin-bottom:12px;display:flex;gap:10px;align-items:center}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#172b4d;color:#fff;padding:8px 14px;border-radius:6px;display:none;z-index:40;max-width:90vw}
+
+@media(max-width:800px){
+  .app{grid-template-columns:1fr;grid-template-rows:56px auto minmax(0,1fr)}
+  header{grid-column:1}.logo{width:auto}.logo span{display:none}
+  nav{display:flex;flex-wrap:wrap;padding:6px 8px;border-right:0;border-bottom:1px solid var(--border)}
+  nav .sect,nav .foot{display:none}
+  main{padding:12px 16px 40px}
+  .dbody{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header>
+    <div class="logo"><i>K</i><span>Job Kanban</span></div>
+    <div class="gsearch"><input id="q" type="search" placeholder="Search company, role, notes, comments" autocomplete="off"></div>
+    <div class="hright">
+      <button class="iconbtn" id="theme" title="Light / dark theme">◐</button>
+      <button class="iconbtn" id="signout" title="Sign out" hidden>⎋</button>
+    </div>
+  </header>
+  <nav id="nav">
+    <div class="sect">Job search</div>
+    <a data-view="board">▦ Board <span class="n" id="nBoard"></span></a>
+    <a data-view="list">☰ List <span class="n" id="nList"></span></a>
+    <a data-view="inbox">✉ Inbox <span class="n" id="nInbox"></span></a>
+    <div class="sect">Data</div>
+    <a id="openSheet" target="_blank" rel="noopener">▤ Google Sheet ↗</a>
+    <a id="reload">⟳ Reload</a>
+    <div class="foot" id="foot"></div>
+  </nav>
+  <main id="main"></main>
+</div>
+<div class="drawer-bg" id="dbg"></div>
+<aside class="drawer" id="drawer"></aside>
+<div class="toast" id="toast"></div>
+
+<script src="https://accounts.google.com/gsi/client" async></script>
+<script>
+'use strict';
+// ---------- config ----------
+// OAuth client of the Google Cloud project "job-kanban" (Web application, origins: GitHub Pages + localhost).
+// A client id is public by design; access still needs a Google sign-in by a test user of that project.
+const CLIENT_ID = '';
+const SCOPES = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive.file', 'https://www.googleapis.com/auth/gmail.readonly'];
+const STATUSES = ['new', 'applied', 'screen', 'interview', 'offer', 'rejected (email)', 'rejected', 'no reply'];
+const CLOSED = ['rejected (email)', 'rejected', 'no reply'];
+const ACTIVE = ['applied', 'screen', 'interview', 'offer'];
+const KINDS = ['comment', 'cover letter', 'reply'];
+const KIND_LABEL = { 'comment': 'Comment', 'cover letter': 'Cover letter', 'reply': 'Company reply' };
+const KIND_CLASS = { 'comment': '', 'cover letter': 'cover', 'reply': 'reply' };
+const SHEETS = {
+  comments: ['cid', 'job_id', 'at', 'kind', 'text', 'file_name', 'file_url', 'edited_at'],
+  activity: ['at', 'id', 'company', 'role', 'event', 'details'],
+  mail: ['msg_id', 'job_id', 'at', 'verdict', 'subject'],
+};
+const FOLDER = 'Job kanban — attachments';
+const INBOX_DAYS = 45;
+
+// ---------- small helpers ----------
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const safeUrl = u => /^https?:\/\//i.test(String(u || '')) ? String(u) : '';
+const linkify = s => esc(s).replace(/https?:\/\/[^\s<&]+/g, u => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`);
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+  del(k) { try { localStorage.removeItem(k); } catch (e) {} },
+};
+const pad = n => String(n).padStart(2, '0');
+const localStamp = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+const today = () => localStamp().slice(0, 10);
+// Sheets serial date (days since 1899-12-30, sheet wall time) → "yyyy-MM-dd HH:mm".
+const fromSerial = v => typeof v === 'number' ? new Date(Math.round((v - 25569) * 864e5)).toISOString().slice(0, 16).replace('T', ' ') : String(v ?? '');
+// "2026-11-16", "11/16/2026" or "16.11.2026" → Date (local midnight) or null.
+function parseDay(s) {
+  s = String(s || '').trim(); let m;
+  if ((m = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(s))) return new Date(+m[1], m[2] - 1, +m[3]);
+  if ((m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(s))) return new Date(+m[3], m[1] - 1, +m[2]);
+  if ((m = /^(\d{1,2})\.(\d{1,2})\.(\d{4})/.exec(s))) return new Date(+m[3], m[2] - 1, +m[1]);
+  return null;
+}
+const gmailDay = d => `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
+const decodeEntities = s => new DOMParser().parseFromString(`<!doctype html><body>${s}`, 'text/html').body.textContent;
+const escRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+// Text cells go in with a leading apostrophe so Sheets never reads them as formulas, numbers or dates.
+const T = v => { const s = String(v ?? ''); return s === '' ? '' : "'" + s; };
+const colLetter = n => { let s = ''; for (n++; n > 0; n = Math.floor((n - 1) / 26)) s = String.fromCharCode(65 + (n - 1) % 26) + s; return s; };
+function toast(msg, ms = 3500) { const t = $('#toast'); t.textContent = msg; t.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => t.style.display = 'none', ms); }
+async function pool(items, fn, n = 8) {
+  const out = new Array(items.length); let i = 0;
+  await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => { while (i < items.length) { const k = i++; out[k] = await fn(items[k]); } }));
+  return out;
+}
+
+// ---------- theme ----------
+const setTheme = t => { document.documentElement.dataset.theme = t; store.set('kb.theme', t); };
+setTheme(store.get('kb.theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+$('#theme').onclick = () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+
+// ---------- auth (Google Identity Services, token in this browser only) ----------
+let token = null, tokenClient = null, pendingAuth = null, authLost = false;
+try { const t = JSON.parse(store.get('kb.token')); if (t && t.exp > Date.now() + 60000) token = t; } catch (e) {}
+class AuthError extends Error {}
+function gisReady() {
+  return new Promise(res => { const tick = () => window.google?.accounts?.oauth2 ? res() : setTimeout(tick, 100); tick(); });
+}
+async function signIn() {
+  await gisReady();
+  if (!tokenClient) tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID, scope: SCOPES.join(' '),
+    callback: r => {
+      const p = pendingAuth; pendingAuth = null; if (!p) return;
+      if (r.error) return p.rej(new Error(r.error_description || r.error));
+      if (!google.accounts.oauth2.hasGrantedAllScopes(r, ...SCOPES)) return p.rej(new Error('Not every permission was granted. Sign in again and tick all boxes.'));
+      token = { access: r.access_token, exp: Date.now() + r.expires_in * 1000 };
+      store.set('kb.token', JSON.stringify(token)); authLost = false; p.res();
+    },
+    error_callback: e => { const p = pendingAuth; pendingAuth = null; p?.rej(new Error(e.message || e.type || 'Sign-in closed')); },
+  });
+  return new Promise((res, rej) => { pendingAuth = { res, rej }; tokenClient.requestAccessToken({ prompt: store.get('kb.consented') ? '' : 'consent' }); })
+    .then(() => store.set('kb.consented', '1'));
+}
+function signOut() {
+  if (token && window.google?.accounts?.oauth2) google.accounts.oauth2.revoke(token.access, () => {});
+  token = null; store.del('kb.token'); store.del('kb.consented'); location.reload();
+}
+$('#signout').onclick = signOut;
+
+async function api(url, { method = 'GET', body, headers = {}, raw = false } = {}) {
+  if (!token || token.exp < Date.now() + 20000) { loseAuth(); throw new AuthError('Session expired'); }
+  const r = await fetch(url, {
+    method,
+    headers: { Authorization: 'Bearer ' + token.access, ...(body !== undefined && !raw ? { 'Content-Type': 'application/json' } : {}), ...headers },
+    body: body === undefined ? undefined : raw ? body : JSON.stringify(body),
+  });
+  if (r.status === 401) { loseAuth(); throw new AuthError('Session expired'); }
+  if (!r.ok) { let m = ''; try { m = (await r.json()).error.message; } catch (e) { m = r.statusText; } throw new Error(m || 'HTTP ' + r.status); }
+  return r.status === 204 ? null : r.json();
+}
+function loseAuth() { token = null; store.del('kb.token'); if (!authLost) { authLost = true; render(); } }
+
+// ---------- Google Sheets storage ----------
+let sheetId = store.get('kb.sheet') || '';
+let gids = {}, headers = [], jobs = [], comments = [], history = [], mailRows = new Map();
+const SH = () => `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}`;
+const enc = encodeURIComponent;
+async function batchGet(ranges, opts) {
+  const r = await api(`${SH()}/values:batchGet?${ranges.map(x => 'ranges=' + enc(x)).join('&')}&${opts}`);
+  return r.valueRanges.map(v => v.values || []);
+}
+const writeCells = data => api(`${SH()}/values:batchUpdate`, { method: 'POST', body: { valueInputOption: 'USER_ENTERED', data } });
+async function appendRow(sheet, row) {
+  const r = await api(`${SH()}/values/${enc(sheet + '!A1')}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`, { method: 'POST', body: { values: [row] } });
+  return Number(/!\$?[A-Z]+\$?(\d+)/.exec(r.updates.updatedRange)[1]);
+}
+
+async function ensureSheets() {
+  const missing = Object.keys(SHEETS).filter(n => !(n in gids));
+  if (!missing.length) return;
+  const r = await api(`${SH()}:batchUpdate`, { method: 'POST', body: { requests: missing.map(title => ({ addSheet: { properties: { title, gridProperties: { frozenRowCount: 1 } } } })) } });
+  r.replies.forEach(x => gids[x.addSheet.properties.title] = x.addSheet.properties.sheetId);
+  await writeCells(missing.map(n => ({ range: `${n}!A1`, values: [SHEETS[n]] })));
+}
+
+// Returns the column letter of a jobs header, adding the column when missing.
+async function ensureColumn(name) {
+  let i = headers.indexOf(name);
+  if (i < 0) { i = headers.length; headers.push(name); await writeCells([{ range: `jobs!${colLetter(i)}1`, values: [[name]] }]); }
+  return colLetter(i);
+}
+
+// The sheet can be sorted by hand at any time, so re-check the row by id before every write.
+async function jobRow(j) {
+  const col = await ensureColumn('id');
+  const [[v] = []] = (await batchGet([`jobs!${col}${j.row}`], 'valueRenderOption=FORMATTED_VALUE'))[0];
+  if (v === j.id) return j.row;
+  const ids = (await batchGet([`jobs!${col}:${col}`], 'valueRenderOption=FORMATTED_VALUE'))[0];
+  const i = ids.findIndex(r => r[0] === j.id);
+  if (i < 1) throw new Error(`Job ${j.id} is no longer in the sheet — reload`);
+  return j.row = i + 1;
+}
+async function commentRow(c) {
+  const [[v] = []] = (await batchGet([`comments!A${c._row}`], 'valueRenderOption=FORMATTED_VALUE'))[0];
+  if (v === c.cid) return c._row;
+  const ids = (await batchGet(['comments!A:A'], 'valueRenderOption=FORMATTED_VALUE'))[0];
+  const i = ids.findIndex(r => r[0] === c.cid);
+  if (i < 1) throw new Error('Comment is no longer in the sheet — reload');
+  return c._row = i + 1;
+}
+
+function normStatus(raw, applied) {
+  const s = String(raw || '').trim().toLowerCase().replace(/\s+/g, ' ').replace(/\s*\(\s*/, ' (').replace(/\s*\)/, ')');
+  return STATUSES.includes(s) ? s : (applied ? 'applied' : 'new');
+}
+
+async function load() {
+  setStat('Loading…');
+  const meta = await api(`${SH()}?fields=properties.title,sheets.properties(sheetId,title)`);
+  gids = Object.fromEntries(meta.sheets.map(s => [s.properties.title, s.properties.sheetId]));
+  if (!('jobs' in gids)) throw new Error('This spreadsheet has no "jobs" sheet');
+  await ensureSheets();
+  const [jobsV] = await batchGet(['jobs'], 'valueRenderOption=FORMATTED_VALUE');
+  const [cV, aV, mV] = await batchGet(['comments', 'activity', 'mail'], 'valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=SERIAL_NUMBER');
+  headers = (jobsV[0] || []).map(h => String(h).trim());
+  jobs = jobsV.slice(1).map((r, i) => {
+    const j = { row: i + 2 };
+    headers.forEach((h, k) => j[h] = r[k] ?? '');
+    j.raw_status = j.status;
+    j.status = normStatus(j.status, j.applied_on);
+    return j;
+  }).filter(j => j.company || j.role || j.id);
+  await ensureIds();
+  comments = cV.slice(1).map((r, i) => ({ cid: String(r[0] ?? ''), job_id: String(r[1] ?? ''), at: fromSerial(r[2]), kind: String(r[3] || 'comment'), text: String(r[4] ?? ''),
+    file_name: String(r[5] ?? ''), file_url: String(r[6] ?? ''), edited_at: r[7] === '' || r[7] == null ? '' : fromSerial(r[7]), _row: i + 2 })).filter(c => c.cid);
+  history = aV.slice(1).map(r => ({ at: fromSerial(r[0]), id: String(r[1] ?? ''), event: String(r[4] ?? ''), details: String(r[5] ?? '') }));
+  mailRows = new Map(mV.slice(1).filter(r => r[0]).map(r => [String(r[0]), { job_id: String(r[1] ?? ''), verdict: String(r[3] ?? '') }]));
+  $('#openSheet').href = `https://docs.google.com/spreadsheets/d/${sheetId}/edit`;
+  $('#foot').textContent = meta.properties.title;
+  loaded = true;
+  render();
+  scanInbox();
+}
+
+// Rows added by hand get the next free J-number, like the Apps Script version did.
+async function ensureIds() {
+  const todo = jobs.filter(j => !j.id);
+  if (!todo.length) return;
+  const col = await ensureColumn('id');
+  let max = Math.max(0, ...jobs.map(j => +(/^J(\d+)$/.exec(j.id) || [])[1] || 0));
+  todo.forEach(j => j.id = 'J' + String(++max).padStart(3, '0'));
+  await writeCells(todo.map(j => ({ range: `jobs!${col}${j.row}`, values: [[j.id]] })));
+}
+
+async function setFields(j, fields) {
+  const row = await jobRow(j);
+  const data = [];
+  for (const [k, v] of Object.entries(fields)) data.push({ range: `jobs!${await ensureColumn(k)}${row}`, values: [[v]] });
+  await writeCells(data);
+}
+
+async function logActivity(j, event, details) {
+  const at = localStamp();
+  await appendRow('activity', [at, T(j.id), T(j.company), T(j.role), T(event), T(details)]);
+  history.push({ at: at.slice(0, 16), id: j.id, event, details });
+}
+
+async function setStatus(id, status) {
+  const j = byId(id);
+  if (!j || j.status === status) return;
+  const prev = { status: j.status, applied_on: j.applied_on, raw_status: j.raw_status };
+  j.status = j.raw_status = status;
+  if (status === 'applied' && !j.applied_on) j.applied_on = today();
+  if (status === 'new') j.applied_on = '';
+  saving.add(id); render();
+  try {
+    await setFields(j, { status: T(status), applied_on: j.applied_on });
+    await logActivity(j, 'status', prev.status + ' → ' + status);
+  } catch (e) {
+    Object.assign(j, prev); if (!(e instanceof AuthError)) toast('Not saved: ' + e.message);
+    throw e;
+  } finally { saving.delete(id); render(); }
+}
+
+const newCid = () => 'C' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+async function addComment(j, kind, text, file) {
+  let file_name = '', file_url = '';
+  if (file) { const f = await uploadFile(j, file); file_name = file.name; file_url = f.webViewLink; }
+  const cid = newCid(), at = localStamp();
+  const row = await appendRow('comments', [T(cid), T(j.id), at, kind, T(text), T(file_name), T(file_url), '']);
+  const c = { cid, job_id: j.id, at: at.slice(0, 16), kind, text, file_name, file_url, edited_at: '', _row: row };
+  comments.push(c);
+  return c;
+}
+async function editComment(c, kind, text) {
+  if (!text.trim() && !c.file_url) throw new Error('Empty comment — delete it instead');
+  const row = await commentRow(c), at = localStamp();
+  await writeCells([{ range: `comments!D${row}:E${row}`, values: [[kind, T(text)]] }, { range: `comments!H${row}`, values: [[at]] }]);
+  Object.assign(c, { kind, text, edited_at: at.slice(0, 16) });
+}
+async function deleteComment(c) {
+  const row = await commentRow(c);
+  await api(`${SH()}:batchUpdate`, { method: 'POST', body: { requests: [{ deleteDimension: { range: { sheetId: gids.comments, dimension: 'ROWS', startIndex: row - 1, endIndex: row } } }] } });
+  comments = comments.filter(x => x !== c);
+  comments.forEach(x => { if (x._row > row) x._row--; });
+  const m = /\/d\/([\w-]+)|[?&]id=([\w-]+)/.exec(c.file_url || '');
+  if (m) {
+    try { await api(`https://www.googleapis.com/drive/v3/files/${m[1] || m[2]}`, { method: 'PATCH', body: { trashed: true } }); }
+    catch (e) { toast('Comment deleted. Its file stays in Drive (uploaded by the old Apps Script kanban).'); }
+  }
+}
+
+// ---------- Google Drive attachments (drive.file: only files this site created) ----------
+async function folderId() {
+  const key = 'kb.folder.' + sheetId;
+  let id = store.get(key);
+  if (id) return id;
+  const q = `name='${FOLDER.replace(/'/g, "\\'")}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+  const r = await api(`https://www.googleapis.com/drive/v3/files?q=${enc(q)}&fields=files(id)`);
+  id = r.files[0]?.id || (await api('https://www.googleapis.com/drive/v3/files?fields=id', { method: 'POST', body: { name: FOLDER, mimeType: 'application/vnd.google-apps.folder' } })).id;
+  store.set(key, id);
+  return id;
+}
+async function uploadFile(j, file, retry = true) {
+  const parent = await folderId();
+  const b = 'kb' + Math.random().toString(36).slice(2), type = file.type || 'application/octet-stream';
+  const meta = JSON.stringify({ name: `${j.id} — ${j.company} — ${file.name}`, parents: [parent], mimeType: type });
+  const body = new Blob([`--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n--${b}\r\nContent-Type: ${type}\r\n\r\n`, file, `\r\n--${b}--`]);
+  try {
+    return await api('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink', { method: 'POST', raw: true, body, headers: { 'Content-Type': 'multipart/related; boundary=' + b } });
+  } catch (e) {
+    if (!retry || e instanceof AuthError) throw e;
+    store.del('kb.folder.' + sheetId); // folder was deleted in Drive — make a new one
+    return uploadFile(j, file, false);
+  }
+}
+
+// ---------- Gmail (read-only) ----------
+const GM = 'https://gmail.googleapis.com/gmail/v1/users/me';
+const metaCache = new Map(), bodyCache = new Map();
+async function gmailSearch(q, max = 25) {
+  const r = await api(`${GM}/messages?maxResults=${max}&q=${enc(q)}`);
+  return (r.messages || []).map(m => m.id);
+}
+function gmailMeta(id) {
+  if (!metaCache.has(id)) metaCache.set(id, api(`${GM}/messages/${id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&fields=id,threadId,snippet,internalDate,payload/headers`).then(m => {
+    const h = n => (m.payload?.headers || []).find(x => x.name.toLowerCase() === n)?.value || '';
+    const msg = { id: m.id, threadId: m.threadId, from: h('from'), subject: h('subject') || '(no subject)', snippet: decodeEntities(m.snippet || ''), date: new Date(+m.internalDate) };
+    msg.kind = classify(msg);
+    return msg;
+  }).catch(e => { metaCache.delete(id); throw e; }));
+  return metaCache.get(id);
+}
+function b64(s) {
+  const bin = atob(s.replace(/-/g, '+').replace(/_/g, '/'));
+  return new TextDecoder().decode(Uint8Array.from(bin, c => c.charCodeAt(0)));
+}
+function gmailBody(id) {
+  if (!bodyCache.has(id)) bodyCache.set(id, api(`${GM}/messages/${id}?format=full`).then(m => {
+    const parts = []; const walk = p => { if (!p) return; parts.push(p); (p.parts || []).forEach(walk); }; walk(m.payload);
+    const plain = parts.find(p => p.mimeType === 'text/plain' && p.body?.data);
+    if (plain) return b64(plain.body.data).trim();
+    const html = parts.find(p => p.mimeType === 'text/html' && p.body?.data);
+    if (!html) return m.snippet || '';
+    // Parsed into an inert document and read as text only — the email's HTML is never rendered.
+    const doc = new DOMParser().parseFromString(b64(html.body.data), 'text/html');
+    doc.querySelectorAll('style,script,head').forEach(n => n.remove());
+    doc.querySelectorAll('br,p,div,tr,li,h1,h2,h3').forEach(n => n.append('\n'));
+    return doc.body.textContent.replace(/[ \t ]+/g, ' ').replace(/\n\s*\n\s*\n+/g, '\n\n').trim();
+  }).catch(e => { bodyCache.delete(id); throw e; }));
+  return bodyCache.get(id);
+}
+const gmailLink = m => `https://mail.google.com/mail/u/0/#all/${m.threadId}`;
+const senderName = f => (/^\s*"?([^"<]+?)"?\s*</.exec(f) || [, f])[1].trim();
+
+const REJECT = /unfortunately|not (to )?(move|moving|proceed|progress)\w* (forward|further|ahead)|decided (not )?to (move forward|proceed|pursue|go ahead|continue) with (other|another|a different)|not been (selected|successful|shortlisted)|no longer (be )?consider|(position|role|vacancy) has (now )?been filled|will not be (moving|progressing|proceeding|taking)|won'?t be (moving|progressing|proceeding)|regret to|other candidates (whose|who)|not (be )?able to (offer|move)|not the right (fit|match)|declin(e|ed) your application|(rejected|reject) your application/i;
+const STRONG_INVITE = /schedul\w* (a |an |the |your )?(call|chat|interview|meeting|time)|calendly\.com|book a (time|slot|call)|your availability|invite you to (an? )?(interview|call|chat)|phone screen|screening call|take[- ]home|test (task|assignment)|coding (challenge|assessment)|technical (interview|assessment)/i;
+const CONFIRM = /thank(s| you) for (applying|your application|your interest)|application (was |has been )?(sent|received|submitted)|we('ve| have) received your application|your application to/i;
+const INVITE = /interview|next steps? (is|would be|will be)|would (love|like) to (chat|talk|speak|connect)|(chat|call|talk) with (you|me|us)|move (you )?forward/i;
+function classify(m) {
+  const t = m.subject + ' ' + m.snippet;
+  if (REJECT.test(t)) return 'reject';
+  if (STRONG_INVITE.test(t)) return 'invite';
+  if (CONFIRM.test(t)) return 'confirm';
+  if (INVITE.test(t)) return 'invite';
+  return 'other';
+}
+const KIND_BADGE = { reject: ['reject', 'Rejection?'], invite: ['invite', 'Invitation?'], confirm: ['', 'Confirmation'], other: ['', 'Other'] };
+
+// Names to look for in mail: "Todoist (Doist)" → Todoist, Doist. Generic names give nothing.
+const GENERIC = /^(confidential( company)?|stealth( startup)?|undisclosed|company|client|our client|recruiter|unknown)$/i;
+function names(j) {
+  return [...new Set(String(j.company || '').split(/[()\/,|]+| - | — /)
+    .map(s => s.replace(/\s+(gmbh|inc|ltd|llc|b\.?v\.?|s\.?a\.?|ag|plc|group|technologies|limited|portugal|uk|ltd\.)\.?$/i, '').trim())
+    .filter(s => s.length >= 3 && !GENERIC.test(s)))];
+}
+function mailQuery(j) {
+  if (String(j.mail_query || '').trim()) return String(j.mail_query).trim();
+  const n = names(j);
+  return n.length ? '(' + n.map(s => `"${s.replace(/"/g, '')}"`).join(' OR ') + ')' : '';
+}
+const nameRe = new Map();
+const wordRe = n => nameRe.get(n) || nameRe.set(n, new RegExp(`(^|[^\\p{L}\\p{N}])${escRe(n)}($|[^\\p{L}\\p{N}])`, 'iu')).get(n);
+function matchJob(m) {
+  const hay = `${m.from} ${m.subject} ${m.snippet}`;
+  const cands = [];
+  for (const j of jobs) {
+    if (j.status === 'new' && !j.applied_on) continue;
+    const hit = names(j).filter(n => wordRe(n).test(hay)).sort((a, b) => b.length - a.length)[0];
+    if (hit) cands.push({ j, len: hit.length, role: String(j.role || '').toLowerCase().split(/\W+/).filter(w => w.length > 3 && m.subject.toLowerCase().includes(w)).length });
+  }
+  cands.sort((a, b) => b.len - a.len || b.role - a.role || String(b.j.applied_on).localeCompare(String(a.j.applied_on)));
+  return cands[0]?.j || null;
+}
+// The status a message suggests for its job, or null.
+function suggestion(m) {
+  const j = byId(m.job_id);
+  if (!j || mailRows.has(m.id)) return null;
+  const applied = parseDay(j.applied_on);
+  if (applied && m.date < applied) return null;
+  if (m.kind === 'reject') return ['new', 'applied'].includes(j.status) ? 'rejected (email)' : ['screen', 'interview', 'offer'].includes(j.status) ? 'rejected' : null;
+  if (m.kind === 'invite' && ['new', 'applied'].includes(j.status)) return 'screen';
+  return null;
+}
+
+let inbox = [], inboxState = 'idle', inboxError = '';
+const ATS = ['greenhouse.io', 'greenhouse-mail.io', 'ashbyhq.com', 'lever.co', 'hire.lever.co', 'myworkday.com', 'workablemail.com', 'workable.com', 'smartrecruiters.com', 'teamtailor.com', 'teamtailor-mail.com', 'recruitee.com', 'personio.de', 'personio.com', 'bamboohr.com', 'jobvite.com', 'icims.com', 'breezy.hr', 'pinpointhq.com', 'join.com', 'homerun.co', 'jobs-noreply@linkedin.com', 'hit-reply@linkedin.com'];
+async function scanInbox() {
+  inboxState = 'loading'; render();
+  try {
+    const q = `newer_than:${INBOX_DAYS}d -from:me -from:jobalerts-noreply@linkedin.com -from:jobs-listings@linkedin.com -category:promotions ` +
+      `(from:(${ATS.join(' OR ')}) OR subject:(application OR applying OR applied OR interview OR candidacy OR candidate OR position OR "next steps" OR opportunity) OR "thank you for applying" OR "your application")`;
+    const ids = await gmailSearch(q, 150);
+    const metas = await pool(ids, gmailMeta);
+    inbox = metas.map(m => ({ ...m, job_id: mailRows.get(m.id)?.job_id || matchJob(m)?.id || '' }));
+    inboxState = 'done';
+  } catch (e) {
+    inboxState = 'error'; inboxError = e.message;
+  }
+  render();
+}
+const reviewQueue = () => inbox.filter(m => !mailRows.has(m.id) && m.job_id);
+const suggestionsFor = id => inbox.filter(m => m.job_id === id && suggestion(m));
+
+async function recordMail(m, jobId, verdict) {
+  await appendRow('mail', [T(m.id), T(jobId), localStamp(), verdict, T(m.subject)]);
+  mailRows.set(m.id, { job_id: jobId, verdict });
+}
+async function saveMailAsReply(m, j, verdict) {
+  let body = m.snippet;
+  try { body = await gmailBody(m.id); } catch (e) { if (e instanceof AuthError) throw e; }
+  if (body.length > 6000) body = body.slice(0, 6000) + '\n…';
+  const text = `${m.subject}\nFrom: ${m.from}\nDate: ${localStamp(m.date).slice(0, 16)}\n${gmailLink(m)}\n\n${body}`;
+  await addComment(j, 'reply', text);
+  await recordMail(m, j.id, verdict);
+}
+async function acceptSuggestion(msgId) {
+  const m = inbox.find(x => x.id === msgId), j = m && byId(m.job_id), to = m && suggestion(m);
+  if (!to) return;
+  await setStatus(j.id, to);
+  await saveMailAsReply(m, j, 'accepted');
+  toast(`${j.company}: moved to ${to}, the email is saved as a company reply`);
+  render(); refreshDrawer();
+}
+async function dismissMail(msgId) {
+  const m = inbox.find(x => x.id === msgId) || await gmailMeta(msgId);
+  await recordMail(m, m.job_id || '', 'dismissed');
+  render(); refreshDrawer();
+}
+
+// ---------- view state ----------
+let loaded = false, view = store.get('kb.view') || 'board', sortKey = 'tier', sortDir = 1;
+let hideClosed = store.get('kb.hideClosed') === '1', inboxAll = false;
+const saving = new Set();
+const byId = id => jobs.find(j => j.id === id);
+const filters = (() => { try { return JSON.parse(store.get('kb.filters')) || {}; } catch (e) { return {}; } })();
+const F = { wave: 'active', tier: '', ctype: '', region: '', fstatus: '', paid: false, ...filters };
+const setStat = s => { const c = $('#count'); if (c) c.textContent = s; };
+
+function regions(j) {
+  const l = String(j.location || '').toLowerCase(), r = [];
+  if (/remote|anywhere|worldwide|emea|global/.test(l)) r.push('remote');
+  if (/japan|tokyo|osaka|fukuoka|kyoto|yokohama/.test(l)) r.push('japan');
+  if (/belgrade|beograd|serbia/.test(l)) r.push('belgrade');
+  if (/london|\buk\b|united kingdom|england/.test(l)) r.push('uk');
+  if (!r.length) r.push('other');
+  return r;
+}
+const commentsOf = id => comments.filter(c => c.job_id === id);
+const lastComment = id => commentsOf(id).sort((a, b) => b.at.localeCompare(a.at))[0];
+const lastText = c => c ? (c.text.split('\n')[0] || '📎 ' + c.file_name) : '';
+
+function visible(j) {
+  const q = $('#q').value.trim().toLowerCase();
+  if (F.wave === 'active' && !(j.wave === '1' || j.wave === 'gold')) return false;
+  if ((F.wave === 'gold' || F.wave === '1') && j.wave !== F.wave) return false;
+  if (F.tier && j.tier !== F.tier) return false;
+  if (F.paid && !j.salary) return false;
+  if (F.ctype && !String(j.company_type || 'unknown').toLowerCase().startsWith(F.ctype)) return false;
+  if (F.region && !regions(j).includes(F.region)) return false;
+  if (F.fstatus === 'open' && j.status !== 'new') return false;
+  if (F.fstatus === 'active' && !ACTIVE.includes(j.status)) return false;
+  if (F.fstatus === 'closed' && !CLOSED.includes(j.status)) return false;
+  if (hideClosed && CLOSED.includes(j.status)) return false;
+  if (q && ![j.company, j.role, j.notes, j.location, j.id, ...commentsOf(j.id).map(c => c.text)].join(' ').toLowerCase().includes(q)) return false;
+  return true;
+}
+
+const waveTag = j => `<span class="tag ${j.wave === 'gold' ? 'gold' : ''}">${j.wave === 'gold' ? 'gold' : j.wave === '-' ? 'skip' : 'wave ' + esc(j.wave)}</span>`;
+const money = j => j.salary ? `<div class="money">${esc(j.salary)}</div>` : `<div class="money none">salary not listed</div>`;
+const statusSelect = j => `<select class="st" data-id="${esc(j.id)}">${STATUSES.map(s => `<option${s === j.status ? ' selected' : ''}>${s}</option>`).join('')}</select>`;
+function suggHtml(j) {
+  return suggestionsFor(j.id).slice(0, 2).map(m => {
+    const to = suggestion(m);
+    return `<div class="sugg ${m.kind}" data-msg="${esc(m.id)}"><span>✉ ${m.kind === 'reject' ? 'Looks like a rejection' : 'Looks like an invitation'}: “${esc(m.subject.slice(0, 70))}”</span>
+      <button data-act="accept">→ ${esc(to)}</button><button data-act="peek">Read</button><button data-act="dismiss" title="Not about this job / ignore">✕</button></div>`;
+  }).join('');
+}
+function card(j) {
+  const cs = commentsOf(j.id), kinds = new Set(cs.map(c => c.kind)), files = cs.filter(c => c.file_url).length, last = lastComment(j.id);
+  return `<div class="icard${saving.has(j.id) ? ' saving' : ''}" draggable="true" data-id="${esc(j.id)}">
+    <div class="co">${esc(j.company)}</div><div class="role">${esc(j.role)}</div>${money(j)}
+    <div class="meta">${esc(j.location)}</div>
+    <div class="tags">${waveTag(j)}<span class="tag">tier ${esc(j.tier)}</span>
+      ${j.company_type ? `<span class="tag">${esc(String(j.company_type).split(' ')[0])}</span>` : ''}
+      ${j.applied_on ? `<span class="tag">applied ${esc(j.applied_on)}</span>` : ''}
+      ${files ? `<span class="tag blue">📎 ${files}</span>` : ''}${kinds.has('cover letter') ? '<span class="tag blue">✉ letter</span>' : ''}${kinds.has('reply') ? '<span class="tag blue">↩ reply</span>' : ''}</div>
+    ${last ? `<div class="note">💬 ${esc(lastText(last))}</div>` : ''}
+    ${suggHtml(j)}
+    <div class="actions">${statusSelect(j)}${safeUrl(j.apply_url) ? `<a href="${esc(j.apply_url)}" target="_blank" rel="noopener">Open ↗</a>` : ''}<span class="meta" style="margin-left:auto">${cs.length ? '💬 ' + cs.length : ''}</span></div>
+  </div>`;
+}
+
+function toolbar(extra = '') {
+  const sel = (id, opts) => `<select data-f="${id}">${opts.map(([v, n]) => `<option value="${v}"${F[id] === v ? ' selected' : ''}>${n}</option>`).join('')}</select>`;
+  return `<div class="toolbar">
+    ${sel('wave', [['active', 'Waves 1 + gold'], ['gold', 'Gold only'], ['1', 'Wave 1 only'], ['all', 'All, incl. tier D']])}
+    ${sel('tier', [['', 'Any tier'], ['A', 'Tier A'], ['B', 'Tier B'], ['C', 'Tier C'], ['D', 'Tier D']])}
+    ${sel('ctype', [['', 'Any company type'], ['product', 'Product'], ['outsourcing', 'Outsourcing'], ['recruiter', 'Recruiter'], ['unknown', 'Unknown']])}
+    ${sel('region', [['', 'Any location'], ['remote', 'Remote'], ['japan', 'Japan'], ['belgrade', 'Belgrade / Serbia'], ['uk', 'UK / London'], ['other', 'Other on-site']])}
+    ${sel('fstatus', [['', 'Any status'], ['open', 'Not applied yet'], ['active', 'In progress'], ['closed', 'Closed']])}
+    <button class="chip${F.paid ? ' on' : ''}" data-chip="paid">With salary</button>
+    <button class="chip${hideClosed ? ' on' : ''}" data-chip="hideClosed" title="Hides rejected (email), rejected and no reply">Hide closed</button>
+    <button class="btn" id="resetF">Reset</button>${extra}
+    <span class="count" id="count"></span></div>`;
+}
+
+function render() {
+  if (!CLIENT_ID) return gate(`<h2>Almost there</h2><p>The OAuth client id is not set yet in <code>index.html</code>.</p>`);
+  if (!sheetId) return gate(`<h2>Connect your sheet</h2><p>Paste the link to the Google Sheet with the <b>jobs</b> list. It stays in this browser only.</p>
+    <input id="sheetUrl" placeholder="https://docs.google.com/spreadsheets/d/…"><button class="btn primary" id="sheetSave">Continue</button>`);
+  if (!token) return gate(`<h2>${authLost ? 'Session expired' : 'Sign in'}</h2><p>${authLost ? 'Google access lasts an hour. Sign in again to continue — nothing was lost.' : 'Sign in with the Google account that owns the job sheet.'}</p>
+    <button class="btn primary" id="signin">Sign in with Google</button><p class="meta" id="gateErr"></p>`);
+  if (!loaded) return gate(`<h2>Loading…</h2><p class="meta" id="gateErr"></p>`);
+  $('#signout').hidden = false;
+  $$('#nav [data-view]').forEach(a => a.classList.toggle('active', a.dataset.view === view));
+  const shown = jobs.filter(visible);
+  $('#nBoard').textContent = shown.length; $('#nList').textContent = shown.length;
+  const nr = reviewQueue().length, ni = $('#nInbox');
+  ni.textContent = inboxState === 'loading' ? '…' : nr || ''; ni.classList.toggle('hot', nr > 0);
+  const main = $('#main');
+  if (view === 'inbox') main.innerHTML = inboxHtml();
+  else if (view === 'list') main.innerHTML = `<h1>List</h1>${toolbar()}${listHtml(shown)}`;
+  else main.innerHTML = `<h1>Board</h1>${toolbar()}${boardHtml(shown)}`;
+  setStat(view === 'inbox' ? '' : `${shown.length} shown · ${jobs.length} in sheet`);
+}
+function gate(html) {
+  $('#main').innerHTML = `<div class="gate">${html}</div>`;
+  $('#signout').hidden = !token;
+}
+
+function boardHtml(list) {
+  const cols = hideClosed ? STATUSES.filter(s => !CLOSED.includes(s)) : STATUSES;
+  return `<div class="board">${cols.map(s => {
+    const l = list.filter(j => j.status === s);
+    return `<div class="col" data-status="${s}"><h4><span>${s}</span><span>${l.length}</span></h4><div class="drop">${l.map(card).join('')}</div></div>`;
+  }).join('')}</div>`;
+}
+
+const COLS = [['tier', 'Tier'], ['wave', 'Wave'], ['company', 'Company'], ['role', 'Role'], ['salary', 'Salary'], ['location', 'Location'], ['status', 'Status'], ['applied_on', 'Applied'], ['comments', 'Comments']];
+function listHtml(list) {
+  const rank = { gold: 0, '1': 1, '-': 2 };
+  const key = j => sortKey === 'wave' ? (rank[j.wave] ?? 3) : sortKey === 'status' ? STATUSES.indexOf(j.status)
+    : sortKey === 'comments' ? -commentsOf(j.id).length : sortKey === 'applied_on' ? (parseDay(j.applied_on)?.getTime() || 0) : String(j[sortKey] || '').toLowerCase();
+  const rows = [...list].sort((a, b) => {
+    if (sortKey === 'salary' && !!a.salary !== !!b.salary) return a.salary ? -1 : 1;
+    const x = key(a), y = key(b); return (x > y ? 1 : x < y ? -1 : 0) * sortDir;
+  });
+  return `<table class="list"><thead><tr>${COLS.map(([k, n]) => `<th data-sort="${k}">${n}${k === sortKey ? (sortDir > 0 ? ' ▴' : ' ▾') : ''}</th>`).join('')}<th></th></tr></thead><tbody>${
+    rows.map(j => { const cs = commentsOf(j.id), last = lastComment(j.id), sg = suggestionsFor(j.id).length; return `<tr class="row" data-id="${esc(j.id)}">
+      <td>${esc(j.tier)}</td><td>${waveTag(j)}</td><td><b>${esc(j.company)}</b>${sg ? ' <span class="lozenge blue">✉ ' + sg + '</span>' : ''}</td><td>${esc(j.role)}</td>
+      <td>${j.salary ? `<span class="money">${esc(j.salary)}</span>` : '<span class="meta">—</span>'}</td>
+      <td class="meta">${esc(j.location)}</td><td>${statusSelect(j)}</td><td class="meta">${esc(j.applied_on)}</td>
+      <td class="meta">${cs.length ? `💬 ${cs.length} · ${esc(lastText(last).slice(0, 60))}` : ''}</td>
+      <td>${safeUrl(j.apply_url) ? `<a href="${esc(j.apply_url)}" target="_blank" rel="noopener">Open ↗</a>` : ''}</td></tr>`; }).join('')}</tbody></table>`;
+}
+
+function jobOptions(sel) {
+  const opts = jobs.filter(j => j.status !== 'new' || j.applied_on).sort((a, b) => String(a.company).localeCompare(String(b.company)));
+  return `<option value="">— not linked —</option>` + opts.map(j => `<option value="${esc(j.id)}"${j.id === sel ? ' selected' : ''}>${esc(j.company)} — ${esc(String(j.role).slice(0, 40))} (${esc(j.status)})</option>`).join('');
+}
+function inboxHtml() {
+  const head = `<h1>Inbox</h1><div class="toolbar">
+    <button class="chip${!inboxAll ? ' on' : ''}" data-inbox="review">To review</button><button class="chip${inboxAll ? ' on' : ''}" data-inbox="all">All job mail</button>
+    <button class="btn" id="rescan">⟳ Check mail</button>
+    <span class="count">Gmail, last ${INBOX_DAYS} days · read-only</span></div>`;
+  if (inboxState === 'loading' && !inbox.length) return head + '<p class="muted">Reading Gmail…</p>';
+  if (inboxState === 'error') return head + `<p class="muted">Could not read Gmail: ${esc(inboxError)}</p>`;
+  const list = (inboxAll ? inbox : inbox.filter(m => !mailRows.has(m.id))).slice().sort((a, b) => b.date - a.date);
+  if (!list.length) return head + `<p class="muted">${inboxAll ? 'No job mail found.' : 'Nothing to review — every email is saved or dismissed.'}</p>`;
+  return head + `<table class="list inbox"><thead><tr><th>Date</th><th>From</th><th>Email</th><th>Job</th><th></th></tr></thead><tbody>${list.map(m => {
+    const rec = mailRows.get(m.id), to = suggestion(m), [cls, label] = KIND_BADGE[m.kind];
+    return `<tr data-msg="${esc(m.id)}"><td class="meta" style="white-space:nowrap">${esc(localStamp(m.date).slice(0, 10))}</td>
+      <td>${esc(senderName(m.from))}</td>
+      <td class="subj"><span class="lozenge ${cls}">${label}</span> <b>${esc(m.subject)}</b><div class="snip">${esc(m.snippet)}</div><pre class="body" hidden></pre></td>
+      <td><select data-link="${esc(m.id)}"${rec ? ' disabled' : ''}>${jobOptions(rec?.job_id ?? m.job_id)}</select>${rec ? `<div class="meta">${esc(rec.verdict)}</div>` : ''}</td>
+      <td><div class="acts">${to ? `<button class="btn sm primary" data-act="accept">→ ${esc(to)}</button>` : ''}
+        ${!rec ? `<button class="btn sm" data-act="save" title="Save as company reply on the job">Save to job</button><button class="btn sm" data-act="dismiss">Dismiss</button>` : ''}
+        <button class="btn sm" data-act="peek">Read</button><a class="btn sm" href="${gmailLink(m)}" target="_blank" rel="noopener">Gmail ↗</a></div></td></tr>`;
+  }).join('')}</tbody></table>`;
+}
+
+// ---------- drawer: details + Jira-style activity + mail ----------
+let openId = null, tab = store.get('kb.tab') || 'all', newestFirst = store.get('kb.newest') !== '0', editing = null, jobMail = { id: null, list: null, error: '' };
+function openDrawer(id) { openId = id; editing = null; jobMail = { id: null, list: null, error: '' }; document.body.classList.add('dopen'); drawerHtml(); if (tab === 'mail') loadJobMail(); }
+function closeDrawer() {
+  const j = byId(openId);
+  if (j && $('#newText') && ($('#newText').value.trim() || $('#newFile').files[0])) submitComment(j);
+  document.body.classList.remove('dopen'); openId = null;
+}
+function refreshDrawer() { if (openId && document.body.classList.contains('dopen')) drawerHtml(); }
+
+const INFO = [['salary', 'Salary'], ['location', 'Location'], ['applied_on', 'Applied on'], ['tier', 'Tier'], ['wave', 'Wave'], ['company_type', 'Company type'], ['check', 'Check'], ['notes', 'Research notes'], ['added', 'Added'], ['raw_status', 'Status in sheet'], ['id', 'Id']];
+const kindOptions = sel => KINDS.map(k => `<option value="${k}"${k === sel ? ' selected' : ''}>${KIND_LABEL[k]}</option>`).join('');
+function drawerHtml() {
+  const j = byId(openId); if (!j) return closeDrawer();
+  const draft = $('#newText') && $('#drawer').dataset.id === j.id ? { text: $('#newText').value, kind: $('#newKind').value } : null;
+  $('#drawer').dataset.id = j.id;
+  $('#drawer').innerHTML = `<div class="dhead"><div style="flex:1"><div class="meta">${esc(j.id)} · ${esc(j.company_type || '')}</div><h2>${esc(j.company)}</h2><div class="role">${esc(j.role)}</div>
+      <div class="actions">${statusSelect(j)}${safeUrl(j.apply_url) ? `<a href="${esc(j.apply_url)}" target="_blank" rel="noopener">Open vacancy ↗</a>` : ''}</div>${suggHtml(j)}</div>
+      <button class="iconbtn" id="dclose" title="Close (Esc)">✕</button></div>
+    <div class="dbody"><div>
+      <div class="tabs">${[['all', 'All'], ['comments', 'Comments'], ['history', 'History'], ['mail', 'Mail']].map(([k, n]) => `<button data-tab="${k}" class="${tab === k ? 'on' : ''}">${n}</button>`).join('')}
+        <button class="order" id="order">${newestFirst ? 'Newest first ↓' : 'Oldest first ↑'}</button></div>
+      <div class="composer idle" id="composer"${tab === 'mail' ? ' hidden' : ''}><div class="avatar">Me</div>
+        <div><textarea id="newText" placeholder="Add a comment…  (⌘/Ctrl+Enter to save)"></textarea>
+          <div class="bar"><select id="newKind">${kindOptions('comment')}</select>
+            <label class="meta">📎 <input type="file" id="newFile"></label>
+            <button class="btn primary" id="addBtn">Save</button><button class="btn" id="cancelBtn">Cancel</button><span class="meta" id="addState"></span></div></div></div>
+      <ul class="feed" id="feed"></ul>
+    </div><div class="side">
+      <div class="box"><h5>Details</h5><dl>${INFO.map(([k, n]) => `<dt>${n}</dt><dd>${esc(j[k]) || '<span class="muted">—</span>'}</dd>`).join('')}
+        <dt>Apply URL</dt><dd>${safeUrl(j.apply_url) ? `<a href="${esc(j.apply_url)}" target="_blank" rel="noopener">${esc(j.apply_url)}</a>` : '—'}</dd></dl></div>
+      <div class="box"><h5>Mail search</h5><input id="mailQ" value="${esc(j.mail_query || '')}" placeholder="${esc(mailQuery({ company: j.company }) || 'from:company.com')}">
+        <div class="meta" style="margin-top:6px">Gmail query for the Mail tab. Empty = company name. Mail before the apply date is skipped.</div>
+        <div class="bar"><button class="btn sm" id="mailQSave">Save</button><span class="meta" id="mailQState"></span></div></div>
+    </div></div>`;
+  if (draft) { $('#newText').value = draft.text; $('#newKind').value = draft.kind; if (draft.text) $('#composer').classList.remove('idle'); }
+  renderFeed();
+}
+
+function commentHtml(c) {
+  if (editing === c.cid) return `<li class="item" data-cid="${esc(c.cid)}"><div class="avatar">Me</div><div><textarea class="editText">${esc(c.text)}</textarea>
+    <div class="bar"><select class="editKind">${kindOptions(c.kind)}</select><button class="btn primary sm" data-act="save">Save</button><button class="btn sm" data-act="cancel">Cancel</button><span class="meta state"></span></div></div></li>`;
+  return `<li class="item" data-cid="${esc(c.cid)}"><div class="avatar">Me</div><div>
+    <div class="who"><b>Me</b><span class="kind ${KIND_CLASS[c.kind] || ''}">${esc(KIND_LABEL[c.kind] || c.kind)}</span>
+      <span class="meta">${esc(c.at)}${c.edited_at ? ' · edited ' + esc(c.edited_at) : ''}</span></div>
+    ${c.text ? `<div class="text">${linkify(c.text)}</div>` : ''}
+    ${safeUrl(c.file_url) ? `<a class="file" href="${esc(c.file_url)}" target="_blank" rel="noopener">📎 ${esc(c.file_name)}</a>` : ''}
+    <div class="links"><button data-act="edit">Edit</button><button data-act="delete">Delete</button></div></div></li>`;
+}
+function historyHtml(h) {
+  const [from, to] = h.details.split(' → ');
+  const what = h.event === 'status' && to ? `changed the <b>Status</b> from <b>${esc(from)}</b> to <b>${esc(to)}</b>` : `<b>${esc(h.event)}</b> ${esc(h.details)}`;
+  return `<li class="item"><div class="avatar sys">⟳</div><div class="hist">Me ${what}<div class="meta">${esc(h.at)}</div></div></li>`;
+}
+function mailItemHtml(m) {
+  const rec = mailRows.get(m.id), [cls, label] = KIND_BADGE[m.kind], to = suggestion(m);
+  return `<li class="item" data-msg="${esc(m.id)}"><div class="avatar mail">✉</div><div>
+    <div class="who"><b>${esc(senderName(m.from))}</b><span class="lozenge ${cls}">${label}</span> <span class="meta">${esc(localStamp(m.date).slice(0, 16))}${rec ? ' · ' + esc(rec.verdict) : ''}</span></div>
+    <div class="text"><b>${esc(m.subject)}</b>\n${esc(m.snippet)}</div><pre class="body" hidden></pre>
+    <div class="links">${to ? `<button data-act="accept">→ ${esc(to)}</button>` : ''}<button data-act="peek">Read</button>
+      ${!rec ? '<button data-act="save">Save as company reply</button><button data-act="dismiss">Dismiss</button>' : ''}
+      <a href="${gmailLink(m)}" target="_blank" rel="noopener">Open in Gmail ↗</a></div></div></li>`;
+}
+function renderFeed() {
+  const j = byId(openId), el = $('#feed'); if (!j || !el) return;
+  const dir = (a, b) => (a < b ? -1 : a > b ? 1 : 0) * (newestFirst ? -1 : 1);
+  if (tab === 'mail') {
+    if (jobMail.id !== j.id || !jobMail.list) { el.innerHTML = `<li class="muted">${jobMail.error ? 'Could not read Gmail: ' + esc(jobMail.error) : 'Reading Gmail…'}</li>`; return; }
+    const list = jobMail.list.slice().sort((a, b) => dir(a.date, b.date));
+    el.innerHTML = list.length ? list.map(mailItemHtml).join('') : `<li class="muted">No mail found for <code>${esc(jobMail.q || '—')}</code>. Set a mail search on the right, e.g. <code>from:company.com</code>.</li>`;
+    return;
+  }
+  const items = [
+    ...(tab !== 'history' ? commentsOf(j.id).map(c => ({ at: c.at, html: commentHtml(c) })) : []),
+    ...(tab !== 'comments' ? history.filter(h => h.id === j.id).map(h => ({ at: h.at, html: historyHtml(h) })) : []),
+  ].sort((a, b) => dir(a.at, b.at));
+  el.innerHTML = items.length ? items.map(i => i.html).join('') : `<li class="muted">${tab === 'history' ? 'No status changes yet.' : 'No comments yet. Add a note, the cover letter you sent, the company reply, or attach your resume.'}</li>`;
+}
+async function loadJobMail() {
+  const j = byId(openId); if (!j) return;
+  const id = j.id; jobMail = { id, list: null, error: '' }; renderFeed();
+  try {
+    const q = mailQuery(j), since = parseDay(j.applied_on) || parseDay(j.added);
+    const fullQ = q && (since ? `${q} after:${gmailDay(new Date(since.getTime() - 864e5))}` : q);
+    const ids = new Set(fullQ ? await gmailSearch(fullQ + ' -from:me', 30) : []);
+    for (const [mid, r] of mailRows) if (r.job_id === id && r.verdict !== 'dismissed') ids.add(mid);
+    const list = (await pool([...ids], gmailMeta)).map(m => ({ ...m, job_id: id }));
+    list.forEach(m => { const x = inbox.find(i => i.id === m.id); if (!x) inbox.push(m); });
+    if (openId === id) { jobMail = { id, list, error: '', q: fullQ }; renderFeed(); }
+  } catch (e) { if (openId === id) { jobMail = { id, list: null, error: e.message }; renderFeed(); } }
+}
+
+async function submitComment(j) {
+  const text = $('#newText').value.replace(/\s+$/, ''), kind = $('#newKind').value, file = $('#newFile').files[0], st = $('#addState');
+  if (!text && !file) { st.textContent = 'Write something or attach a file'; return; }
+  if (file && file.size > 25 * 1024 * 1024) { st.textContent = 'File is larger than 25 MB'; return; }
+  $('#addBtn').disabled = true; st.textContent = file ? 'Uploading…' : 'Saving…';
+  try {
+    await addComment(j, kind, text, file);
+    if (openId === j.id && $('#newText')) { $('#newText').value = ''; $('#newFile').value = ''; $('#composer').classList.add('idle'); st.textContent = ''; }
+    render(); refreshDrawer();
+  } catch (e) {
+    if (document.contains(st)) { st.textContent = 'Not saved: ' + e.message; $('#addBtn').disabled = false; } else toast('Comment not saved: ' + e.message);
+  }
+}
+
+// ---------- events ----------
+const run = p => Promise.resolve(p).catch(e => { if (!(e instanceof AuthError)) toast(e.message); });
+function msgOf(el) { const id = el.closest('[data-msg]')?.dataset.msg; return inbox.find(m => m.id === id) || jobMail.list?.find(m => m.id === id); }
+async function mailAction(btn) {
+  const m = msgOf(btn); if (!m) return;
+  const act = btn.dataset.act, host = btn.closest('[data-msg]');
+  if (act === 'peek') {
+    const pre = host.querySelector('pre.body');
+    if (!pre) { tab = 'mail'; openDrawer(m.job_id); return; }
+    if (!pre.hidden) { pre.hidden = true; return; }
+    pre.hidden = false; pre.textContent = 'Loading…';
+    try { pre.textContent = await gmailBody(m.id); } catch (e) { pre.textContent = 'Could not load: ' + e.message; }
+    return;
+  }
+  btn.disabled = true;
+  try {
+    if (act === 'accept') await acceptSuggestion(m.id);
+    if (act === 'dismiss') { await dismissMail(m.id); }
+    if (act === 'save') {
+      const j = byId(host.querySelector('select[data-link]')?.value || m.job_id);
+      if (!j) { toast('Pick the job first'); return; }
+      await saveMailAsReply(m, j, 'linked'); m.job_id = j.id;
+      toast(`Saved to ${j.company} as a company reply`); render(); refreshDrawer();
+    }
+  } catch (e) { if (!(e instanceof AuthError)) toast(e.message); } finally { btn.disabled = false; }
+}
+
+document.addEventListener('click', e => {
+  const t = e.target;
+  if (t.closest('[data-msg] [data-act]')) { e.stopPropagation(); return mailAction(t.closest('[data-act]')); }
+  const nav = t.closest('#nav [data-view]');
+  if (nav) { view = nav.dataset.view; store.set('kb.view', view); return render(); }
+  if (t.closest('#reload')) return run(load());
+  if (t.id === 'signin') { $('#gateErr').textContent = ''; return signIn().then(() => { render(); return load(); }).catch(err => { const g = $('#gateErr'); if (g) g.textContent = err.message; }); }
+  if (t.id === 'sheetSave') { const m = /\/d\/([\w-]{20,})/.exec($('#sheetUrl').value) || /^([\w-]{20,})$/.exec($('#sheetUrl').value.trim()); if (!m) return toast('That does not look like a Google Sheets link'); sheetId = m[1]; store.set('kb.sheet', sheetId); return render(); }
+  const chip = t.closest('[data-chip]');
+  if (chip) { if (chip.dataset.chip === 'hideClosed') { hideClosed = !hideClosed; store.set('kb.hideClosed', hideClosed ? '1' : '0'); } else { F.paid = !F.paid; store.set('kb.filters', JSON.stringify(F)); } return render(); }
+  if (t.id === 'resetF') { Object.assign(F, { wave: 'active', tier: '', ctype: '', region: '', fstatus: '', paid: false }); hideClosed = false; store.set('kb.hideClosed', '0'); store.set('kb.filters', JSON.stringify(F)); $('#q').value = ''; return render(); }
+  const ib = t.closest('[data-inbox]'); if (ib) { inboxAll = ib.dataset.inbox === 'all'; return render(); }
+  if (t.id === 'rescan') { metaCache.clear(); return scanInbox(); }
+  const th = t.closest('th[data-sort]');
+  if (th) { const k = th.dataset.sort; sortDir = k === sortKey ? -sortDir : 1; sortKey = k; return render(); }
+  // drawer
+  if (t.id === 'dclose' || t.id === 'dbg') return closeDrawer();
+  const tb = t.closest('.tabs [data-tab]');
+  if (tb) { tab = tb.dataset.tab; store.set('kb.tab', tab); drawerHtml(); if (tab === 'mail' && jobMail.id !== openId) loadJobMail(); return; }
+  if (t.id === 'order') { newestFirst = !newestFirst; store.set('kb.newest', newestFirst ? '1' : '0'); $('#order').textContent = newestFirst ? 'Newest first ↓' : 'Oldest first ↑'; return renderFeed(); }
+  if (t.id === 'addBtn') return submitComment(byId(openId));
+  if (t.id === 'cancelBtn') { $('#newText').value = ''; $('#newFile').value = ''; $('#addState').textContent = ''; return $('#composer').classList.add('idle'); }
+  if (t.id === 'mailQSave') {
+    const j = byId(openId), v = $('#mailQ').value.trim(); $('#mailQState').textContent = 'Saving…';
+    return setFields(j, { mail_query: T(v) }).then(() => { j.mail_query = v; $('#mailQState').textContent = 'Saved'; loadJobMail(); }).catch(err => { $('#mailQState').textContent = 'Not saved: ' + err.message; });
+  }
+  const fb = t.closest('#feed [data-cid] [data-act]');
+  if (fb) return commentAction(fb);
+  if (t.closest('a, select, button, input, textarea, label, .drawer')) return;
+  const host = t.closest('.icard, tr.row'); if (host) openDrawer(host.dataset.id);
+});
+
+async function commentAction(btn) {
+  const li = btn.closest('[data-cid]'), c = comments.find(x => x.cid === li.dataset.cid), act = btn.dataset.act;
+  if (act === 'edit') { editing = c.cid; renderFeed(); return $('#feed .editText')?.focus(); }
+  if (act === 'cancel') { editing = null; return renderFeed(); }
+  if (act === 'save') {
+    li.querySelector('.state').textContent = 'Saving…';
+    try { await editComment(c, li.querySelector('.editKind').value, li.querySelector('.editText').value.replace(/\s+$/, '')); editing = null; render(); renderFeed(); }
+    catch (e) { li.querySelector('.state').textContent = 'Not saved: ' + e.message; }
+  }
+  if (act === 'delete') {
+    if (btn.dataset.confirm !== '1') { btn.dataset.confirm = '1'; btn.textContent = 'Click again to delete'; btn.style.color = 'var(--red)'; return; }
+    btn.textContent = 'Deleting…';
+    try { await deleteComment(c); render(); renderFeed(); } catch (e) { btn.textContent = 'Not deleted: ' + e.message; }
+  }
+}
+
+document.addEventListener('focusin', e => { if (e.target.id === 'newText') $('#composer').classList.remove('idle'); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && openId) return closeDrawer();
+  if (e.target.id === 'newText' && (e.metaKey || e.ctrlKey) && e.key === 'Enter') submitComment(byId(openId));
+  if (e.key === '/' && !e.target.closest('input, textarea, select')) { e.preventDefault(); $('#q').focus(); }
+});
+document.addEventListener('change', e => {
+  const t = e.target;
+  if (t.matches('select.st')) return run(setStatus(t.dataset.id, t.value).then(refreshDrawer));
+  if (t.matches('select[data-f]')) { F[t.dataset.f] = t.value; store.set('kb.filters', JSON.stringify(F)); return render(); }
+  if (t.matches('select[data-link]')) { const m = inbox.find(x => x.id === t.dataset.link); if (m) m.job_id = t.value; return render(); }
+});
+let qTimer; $('#q').addEventListener('input', () => { clearTimeout(qTimer); qTimer = setTimeout(render, 120); });
+
+// drag and drop: the whole column is a drop target
+const clearOver = () => $$('.col.over').forEach(c => c.classList.remove('over'));
+document.addEventListener('dragstart', e => {
+  const c = e.target.closest?.('.icard'); if (!c) return;
+  e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', c.dataset.id);
+  setTimeout(() => c.classList.add('dragging'), 0);
+});
+document.addEventListener('dragend', e => { e.target.closest?.('.icard')?.classList.remove('dragging'); clearOver(); });
+document.addEventListener('dragover', e => {
+  const c = e.target.closest?.('.col'); if (!c) return;
+  e.preventDefault(); e.dataTransfer.dropEffect = 'move';
+  if (!c.classList.contains('over')) { clearOver(); c.classList.add('over'); }
+});
+document.addEventListener('drop', e => {
+  const c = e.target.closest?.('.col'); clearOver(); if (!c) return;
+  e.preventDefault(); run(setStatus(e.dataTransfer.getData('text/plain'), c.dataset.status));
+});
+
+// ---------- start ----------
+render();
+if (CLIENT_ID && sheetId && token) run(load().catch(e => { const g = $('#gateErr'); if (g) g.textContent = e.message; throw e; }));
+</script>
+</body>
+</html>
