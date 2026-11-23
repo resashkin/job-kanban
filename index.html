@@ -57,6 +57,10 @@ h1{font-size:22px;margin:0 0 12px}
 .chip{padding:5px 10px;border-radius:16px;border:1px solid var(--border);background:var(--panel);cursor:pointer;font-size:13px}
 .chip.on{background:var(--brand-soft);border-color:var(--brand);color:var(--brand);font-weight:600}
 .count{color:var(--muted);font-size:13px;margin-left:auto}
+.goal{display:flex;align-items:center;gap:12px;background:var(--panel);box-shadow:var(--shadow);border-radius:8px;padding:10px 14px;margin-bottom:14px;flex-wrap:wrap}
+.goal b{font-size:15px}.goal .gbar{flex:1;min-width:160px;height:10px;border-radius:5px;background:var(--panel2);overflow:hidden;display:flex}
+.goal .gbar span{display:block;height:100%;background:var(--green)}.goal .gbar span.talk{background:var(--brand)}
+.goal.done{background:var(--green-soft)}
 .muted,.meta{color:var(--muted)}.meta{font-size:12px}
 .lozenge{display:inline-block;font-size:11px;font-weight:700;text-transform:uppercase;padding:1px 6px;border-radius:3px;background:var(--panel2);color:var(--muted);white-space:nowrap}
 .lozenge.reject{background:var(--red-soft);color:var(--red)}.lozenge.invite{background:var(--green-soft);color:var(--green)}
@@ -186,6 +190,8 @@ const SCOPES = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.goo
 const STATUSES = ['new', 'applied', 'screen', 'interview', 'offer', 'rejected (email)', 'rejected', 'no reply'];
 const CLOSED = ['rejected (email)', 'rejected', 'no reply'];
 const ACTIVE = ['applied', 'screen', 'interview', 'offer'];
+// A successful application = the company talked to me: a screen or further, or a rejection after talking.
+const GOAL = 10, SUCCESS = ['screen', 'interview', 'offer', 'rejected'];
 const KINDS = ['comment', 'cover letter', 'reply'];
 const KIND_LABEL = { 'comment': 'Comment', 'cover letter': 'Cover letter', 'reply': 'Company reply' };
 const KIND_CLASS = { 'comment': '', 'cover letter': 'cover', 'reply': 'reply' };
@@ -689,9 +695,18 @@ function render() {
   ni.textContent = inboxState === 'loading' ? '…' : nr || ''; ni.classList.toggle('hot', nr > 0);
   const main = $('#main');
   if (view === 'inbox') main.innerHTML = inboxHtml();
-  else if (view === 'list') main.innerHTML = `<h1>List</h1>${toolbar()}${listHtml(shown)}`;
-  else main.innerHTML = `<h1>Board</h1>${toolbar()}${boardHtml(shown)}`;
+  else if (view === 'list') main.innerHTML = `<h1>List</h1>${goalHtml()}${toolbar()}${listHtml(shown)}`;
+  else main.innerHTML = `<h1>Board</h1>${goalHtml()}${toolbar()}${boardHtml(shown)}`;
   setStat(view === 'inbox' ? '' : `${shown.length} shown · ${jobs.length} in sheet`);
+}
+function goalHtml() {
+  const won = jobs.filter(j => SUCCESS.includes(j.status)), sent = jobs.filter(j => j.status !== 'new').length;
+  const live = won.filter(j => j.status !== 'rejected').length, n = won.length;
+  const pct = x => Math.min(100, x / GOAL * 100);
+  return `<div class="goal${n >= GOAL ? ' done' : ''}" title="Success = the company talked to you: screen, interview, offer, or a rejection after talking">
+    <b>🎯 ${n} / ${GOAL}</b><span>successful applications${n >= GOAL ? ' — goal reached!' : ''}</span>
+    <div class="gbar"><span style="width:${pct(live)}%"></span><span class="talk" style="width:${pct(n - live)}%"></span></div>
+    <span class="meta">${live} in progress · ${n - live} rejected after talking · ${sent} sent · ${sent ? (n / sent * 100).toFixed(1) : 0}% response</span></div>`;
 }
 function gate(html) {
   $('#main').innerHTML = `<div class="gate">${html}</div>`;
