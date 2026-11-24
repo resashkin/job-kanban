@@ -97,6 +97,16 @@ table.list tr.row:hover td{background:var(--hover);cursor:pointer}
 .inbox td.subj{max-width:520px}.inbox .snip{color:var(--muted);font-size:12px;margin-top:2px}
 .inbox select{max-width:220px;font-size:12px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;background:var(--panel)}
 .inbox .acts{display:flex;gap:6px;flex-wrap:wrap}
+.chip .cnt{opacity:.65;font-weight:400;margin-left:2px}
+.mlist{max-width:860px;display:flex;flex-direction:column;gap:8px}
+.mday{font-size:12px;font-weight:700;text-transform:uppercase;color:var(--muted);margin:10px 0 0}
+.mcard{background:var(--panel);border:1px solid var(--border);border-left:4px solid var(--border);border-radius:8px;padding:10px 12px;box-shadow:var(--shadow)}
+.mcard.k-reject{border-left-color:var(--red)}.mcard.k-invite{border-left-color:var(--green)}.mcard.k-other{border-left-color:var(--gold)}
+.mtop{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}.mco{font-size:15px}.mrole{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mtime{margin-left:auto}.mfrom{font-size:12px;color:var(--muted);margin-top:3px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.msubj{font-weight:600;margin-top:6px}.msnip{color:var(--muted);font-size:13px;margin-top:2px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.mcard pre.body{white-space:pre-wrap;font:13px/1.45 inherit;background:var(--panel2);border-radius:6px;padding:8px 10px;margin:8px 0 0;max-height:420px;overflow:auto}
+.mcard .acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center}.mcard select{max-width:240px;font-size:12px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;background:var(--panel);color:var(--text)}
 
 /* drawer */
 .drawer-bg{position:fixed;inset:0;background:#091e4240;opacity:0;pointer-events:none;transition:opacity .15s;z-index:20}
@@ -486,11 +496,14 @@ function gmailBody(id) {
   if (!bodyCache.has(id)) bodyCache.set(id, api(`${GM}/messages/${id}?format=full`).then(m => {
     const parts = []; const walk = p => { if (!p) return; parts.push(p); (p.parts || []).forEach(walk); }; walk(m.payload);
     const plain = parts.find(p => p.mimeType === 'text/plain' && p.body?.data);
-    if (plain) return b64(plain.body.data).trim();
+    const plainText = plain ? b64(plain.body.data).trim() : '';
+    // Some senders put HTML or CSS into the text/plain part; read those as HTML.
+    if (plainText && !/<\/?(p|div|span|br|table|td|html)\b|@font-face|@media/i.test(plainText)) return plainText;
     const html = parts.find(p => p.mimeType === 'text/html' && p.body?.data);
-    if (!html) return m.snippet || '';
+    const src = html ? b64(html.body.data) : plainText;
+    if (!src) return m.snippet || '';
     // Parsed into an inert document and read as text only — the email's HTML is never rendered.
-    const doc = new DOMParser().parseFromString(b64(html.body.data), 'text/html');
+    const doc = new DOMParser().parseFromString(src, 'text/html');
     doc.querySelectorAll('style,script,head').forEach(n => n.remove());
     doc.querySelectorAll('br,p,div,tr,li,h1,h2,h3').forEach(n => n.append('\n'));
     return doc.body.textContent.replace(/[ \t ]+/g, ' ').replace(/\n\s*\n\s*\n+/g, '\n\n').trim();
@@ -619,7 +632,7 @@ async function dismissMail(msgId) {
 
 // ---------- view state ----------
 let loaded = false, view = store.get('kb.view') || 'board', sortKey = 'tier', sortDir = 1;
-let hideClosed = store.get('kb.hideClosed') === '1', inboxAll = false;
+let hideClosed = store.get('kb.hideClosed') === '1', inboxF = store.get('kb.inboxF') || 'important';
 const saving = new Set();
 const byId = id => jobs.find(j => j.id === id);
 const filters = (() => { try { return JSON.parse(store.get('kb.filters')) || {}; } catch (e) { return {}; } })();
@@ -757,25 +770,52 @@ function jobOptions(sel) {
   const opts = jobs.filter(j => j.status !== 'new' || j.applied_on).sort((a, b) => String(a.company).localeCompare(String(b.company)));
   return `<option value="">— not linked —</option>` + opts.map(j => `<option value="${esc(j.id)}"${j.id === sel ? ' selected' : ''}>${esc(j.company)} — ${esc(String(j.role).slice(0, 40))} (${esc(j.status)})</option>`).join('');
 }
+// Automated senders (ATS, no-reply, team mailboxes) versus a recruiter writing in person.
+const AUTO_SENDER = /no-?reply|notification|\bteam\b|careers|\bjobs?\b|talent|recruit|hiring|\bhr\b|people|workable|greenhouse|lever|ashby|smartrecruiters|teamtailor|recruitee|personio|factorial|hrmos|linkedin|采用|採用/i;
+const isPerson = m => !AUTO_SENDER.test(m.from) && /\s/.test(senderName(m.from).replace(/\s+-\s+.*$/, ''));
+const INBOX_FILTERS = [
+  ['important', 'Important', m => m.job_id && (m.kind !== 'confirm' || isPerson(m))],
+  ['invite', 'Invitations', m => m.kind === 'invite'],
+  ['reject', 'Rejections', m => m.kind === 'reject'],
+  ['confirm', 'Confirmations', m => m.kind === 'confirm'],
+  ['all', 'All', () => true],
+];
+function dayLabel(d) {
+  const t = new Date(); t.setHours(0, 0, 0, 0);
+  const x = new Date(d); x.setHours(0, 0, 0, 0);
+  const diff = Math.round((t - x) / 864e5);
+  return diff === 0 ? 'Today' : diff === 1 ? 'Yesterday' : x.toLocaleDateString(undefined, { day: 'numeric', month: 'short', weekday: diff < 7 ? 'short' : undefined });
+}
 function inboxHtml() {
+  const f = INBOX_FILTERS.find(x => x[0] === inboxF) || INBOX_FILTERS[0];
   const head = `<h1>Inbox</h1><div class="toolbar">
-    <button class="chip${!inboxAll ? ' on' : ''}" data-inbox="review">To review</button><button class="chip${inboxAll ? ' on' : ''}" data-inbox="all">All job mail</button>
+    ${INBOX_FILTERS.map(([k, n, fn]) => `<button class="chip${k === f[0] ? ' on' : ''}" data-inbox="${k}">${n} <span class="cnt">${inbox.filter(fn).length}</span></button>`).join('')}
     <button class="btn" id="rescan">⟳ Check mail</button>
-    <span class="count">Gmail, last ${INBOX_DAYS} days · read-only</span></div>`;
+    <span class="count">${inboxState === 'loading' ? 'Reading Gmail…' : `Gmail, last ${INBOX_DAYS} days · read-only`}</span></div>`;
   if (inboxState === 'loading' && !inbox.length) return head + '<p class="muted">Reading Gmail…</p>';
-  if (inboxState === 'error') return head + `<p class="muted">Could not read Gmail: ${esc(inboxError)}</p>`;
-  const list = (inboxAll ? inbox : inbox.filter(m => !mailRows.has(m.id))).slice().sort((a, b) => b.date - a.date);
-  if (!list.length) return head + `<p class="muted">${inboxAll ? 'No job mail found.' : 'Nothing to review — every email is saved or dismissed.'}</p>`;
-  return head + `<table class="list inbox"><thead><tr><th>Date</th><th>From</th><th>Email</th><th>Job</th><th></th></tr></thead><tbody>${list.map(m => {
-    const rec = mailRows.get(m.id), to = suggestion(m), [cls, label] = KIND_BADGE[m.kind];
-    return `<tr data-msg="${esc(m.id)}"><td class="meta" style="white-space:nowrap">${esc(localStamp(m.date).slice(0, 10))}</td>
-      <td>${esc(senderName(m.from))}</td>
-      <td class="subj"><span class="lozenge ${cls}">${label}</span> <b>${esc(m.subject)}</b><div class="snip">${esc(m.snippet)}</div><pre class="body" hidden></pre></td>
-      <td><select data-link="${esc(m.id)}"${rec ? ' disabled' : ''}>${jobOptions(rec?.job_id ?? m.job_id)}</select>${rec ? `<div class="meta">${esc(rec.verdict)}</div>` : ''}</td>
-      <td><div class="acts">${to ? `<button class="btn sm primary" data-act="accept">→ ${esc(to)}</button>` : ''}
-        ${!rec ? `<button class="btn sm" data-act="save" title="Save as company reply on the job">Save to job</button><button class="btn sm" data-act="dismiss">Dismiss</button>` : ''}
-        <button class="btn sm" data-act="peek">Read</button><a class="btn sm" href="${gmailLink(m)}" target="_blank" rel="noopener">Gmail ↗</a></div></td></tr>`;
-  }).join('')}</tbody></table>`;
+  if (inboxState === 'error' && !inbox.length) return head + `<p class="muted">Could not read Gmail: ${esc(inboxError)}</p>`;
+  const list = inbox.filter(f[2]).sort((a, b) => b.date - a.date);
+  if (!list.length) return head + `<p class="muted">${f[0] === 'invite' ? 'No invitations yet.' : 'Nothing here.'}</p>`;
+  let out = '', day = '';
+  for (const m of list) {
+    const dl = dayLabel(m.date);
+    if (dl !== day) { day = dl; out += `<div class="mday">${esc(dl)}</div>`; }
+    out += mailCardHtml(m);
+  }
+  return head + `<div class="mlist">${out}</div>`;
+}
+function mailCardHtml(m) {
+  const j = byId(m.job_id), rec = mailRows.get(m.id), to = suggestion(m), [cls, label] = KIND_BADGE[m.kind], person = isPerson(m);
+  const sender = senderName(m.from).replace(/\s+-\s+.*$/, '');
+  return `<div class="mcard k-${esc(m.kind)}" data-msg="${esc(m.id)}">
+    <div class="mtop"><b class="mco">${esc(j ? j.company : sender)}</b>${j ? `<span class="meta mrole">${esc(String(j.role).slice(0, 60))}</span><span class="lozenge ${CLOSED.includes(j.status) ? 'reject' : ['screen', 'interview', 'offer'].includes(j.status) ? 'invite' : 'blue'}">${esc(j.status)}</span>` : ''}
+      <span class="meta mtime">${esc(localStamp(m.date).slice(11, 16))}</span></div>
+    <div class="mfrom"><span title="${person ? 'Written by a person' : 'Automated / ATS'}">${person ? '👤' : '⚙'}</span> ${esc(sender)} <span class="lozenge ${cls}">${label}</span>${rec ? `<span class="meta"> · ${esc(rec.verdict === 'auto' ? 'applied automatically' : rec.verdict)}</span>` : ''}</div>
+    <div class="msubj">${esc(m.subject)}</div><div class="msnip">${esc(m.snippet)}</div><pre class="body" hidden></pre>
+    <div class="acts">${to ? `<button class="btn sm primary" data-act="accept">→ ${esc(to)}</button>` : ''}
+      <button class="btn sm" data-act="peek">Read</button>${j ? '<button class="btn sm" data-act="open">Open job</button>' : ''}
+      ${!rec ? `${j ? '' : `<select data-link="${esc(m.id)}">${jobOptions(m.job_id)}</select>`}<button class="btn sm" data-act="save" title="Save as company reply on the job">Save to job</button><button class="btn sm" data-act="dismiss">Dismiss</button>` : ''}
+      <a class="btn sm" href="${gmailLink(m)}" target="_blank" rel="noopener">Gmail ↗</a></div></div>`;
 }
 
 // ---------- drawer: details + Jira-style activity + mail ----------
@@ -891,6 +931,7 @@ function msgOf(el) { const id = el.closest('[data-msg]')?.dataset.msg; return in
 async function mailAction(btn) {
   const m = msgOf(btn); if (!m) return;
   const act = btn.dataset.act, host = btn.closest('[data-msg]');
+  if (act === 'open') { openDrawer(m.job_id); return; }
   if (act === 'peek') {
     const pre = host.querySelector('pre.body');
     if (!pre) { tab = 'mail'; openDrawer(m.job_id); return; }
@@ -923,7 +964,7 @@ document.addEventListener('click', e => {
   const chip = t.closest('[data-chip]');
   if (chip) { if (chip.dataset.chip === 'hideClosed') { hideClosed = !hideClosed; store.set('kb.hideClosed', hideClosed ? '1' : '0'); } else { F.paid = !F.paid; store.set('kb.filters', JSON.stringify(F)); } return render(); }
   if (t.id === 'resetF') { Object.assign(F, { wave: 'active', tier: '', ctype: '', region: '', fstatus: '', paid: false }); hideClosed = false; store.set('kb.hideClosed', '0'); store.set('kb.filters', JSON.stringify(F)); $('#q').value = ''; return render(); }
-  const ib = t.closest('[data-inbox]'); if (ib) { inboxAll = ib.dataset.inbox === 'all'; return render(); }
+  const ib = t.closest('[data-inbox]'); if (ib) { inboxF = ib.dataset.inbox; store.set('kb.inboxF', inboxF); return render(); }
   if (t.id === 'rescan') { metaCache.clear(); return scanInbox(); }
   const th = t.closest('th[data-sort]');
   if (th) { const k = th.dataset.sort; sortDir = k === sortKey ? -sortDir : 1; sortKey = k; return render(); }
