@@ -718,7 +718,8 @@ function render() {
   $$('#nav [data-view]').forEach(a => a.classList.toggle('active', a.dataset.view === view));
   const shown = jobs.filter(visible);
   $('#nBoard').textContent = shown.length; $('#nList').textContent = shown.length;
-  const nr = reviewQueue().length, ni = $('#nInbox');
+  // The badge counts important mail not yet saved, applied or dismissed.
+  const nr = inbox.filter(m => INBOX_FILTERS[0][2](m) && !mailRows.has(m.id)).length, ni = $('#nInbox');
   ni.textContent = inboxState === 'loading' ? '…' : nr || ''; ni.classList.toggle('hot', nr > 0);
   const main = $('#main');
   if (view === 'inbox') main.innerHTML = inboxHtml();
@@ -774,7 +775,8 @@ function jobOptions(sel) {
 const AUTO_SENDER = /no-?reply|notification|\bteam\b|careers|\bjobs?\b|talent|recruit|hiring|\bhr\b|people|workable|greenhouse|lever|ashby|smartrecruiters|teamtailor|recruitee|personio|factorial|hrmos|linkedin|采用|採用/i;
 const isPerson = m => !AUTO_SENDER.test(m.from) && /\s/.test(senderName(m.from).replace(/\s+-\s+.*$/, ''));
 const INBOX_FILTERS = [
-  ['important', 'Important', m => m.job_id && (m.kind !== 'confirm' || isPerson(m))],
+  // Everything about a job except plain "we received your application" notes.
+  ['important', 'Important', m => m.job_id && m.kind !== 'confirm'],
   ['invite', 'Invitations', m => m.kind === 'invite'],
   ['reject', 'Rejections', m => m.kind === 'reject'],
   ['confirm', 'Confirmations', m => m.kind === 'confirm'],
