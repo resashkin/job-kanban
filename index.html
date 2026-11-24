@@ -366,7 +366,7 @@ async function load() {
   $('#foot').textContent = meta.properties.title;
   loaded = true;
   render();
-  scanInbox();
+  scanInbox().then(() => inboxState === 'done' && autoApplyRejections());
 }
 
 // Rows added by hand get the next free J-number, like the Apps Script version did.
@@ -504,8 +504,10 @@ const REJECT = /unfortunately|not (to )?(move|moving|proceed|progress)\w* (forwa
 const STRONG_INVITE = /schedul\w* (a |an |the |your )?(call|chat|interview|meeting|time)|calendly\.com|book a (time|slot|call)|your availability|invite you to (an? )?(interview|call|chat)|phone screen|screening call|take[- ]home|test (task|assignment)|coding (challenge|assessment)|technical (interview|assessment)/i;
 const CONFIRM = /thank(s| you) for (applying|your application|your interest)|application (was |has been )?(sent|received|submitted)|we('ve| have)? received your application|your application (to|for) .{0,80}(received|submitted|is being reviewed)|reviewing (all |your )?applications?/i;
 const INVITE = /interview|next steps? (is|would be|will be)|would (love|like) to (chat|talk|speak|connect)|(chat|call|talk) with (you|me|us)|move (you )?forward/i;
+// "If you don't hear from us, we decided to move forward with other candidates" is a confirmation, not a verdict.
+const CONDITIONAL = /[^.!?\n]*\b(if (you )?(don['’]?t|do not|haven['’]?t|have not|didn['’]?t|did not) (hear|receive)|only (contact|reach out to) (the )?(selected|shortlisted|successful)|in case (you )?(don['’]?t|do not) hear)[^.!?\n]*[.!?]?/gi;
 function classify(m) {
-  const t = m.subject + ' ' + m.snippet;
+  const t = (m.subject + ' ' + m.snippet).replace(CONDITIONAL, ' ');
   if (REJECT.test(t)) return 'reject';
   if (STRONG_INVITE.test(t)) return 'invite';
   if (CONFIRM.test(t)) return 'confirm';
@@ -596,6 +598,17 @@ async function acceptSuggestion(msgId) {
   await saveMailAsReply(m, j, 'accepted');
   toast(`${j.company}: moved to ${to}, the email is saved as a company reply`);
   render(); refreshDrawer();
+}
+// On open, rejections are applied without asking; invitations stay as suggestions (the classifier mistakes confirmations for them).
+async function autoApplyRejections() {
+  const done = [];
+  for (const m of inbox.filter(x => ['rejected (email)', 'rejected'].includes(suggestion(x)))) {
+    const j = byId(m.job_id), to = suggestion(m);
+    try { await setStatus(j.id, to); await saveMailAsReply(m, j, 'auto'); done.push(`${j.company} → ${to}`); }
+    catch (e) { if (e instanceof AuthError) break; console.warn('auto-apply failed', j.company, e); }
+  }
+  if (done.length) { toast(`Rejections from mail: ${done.join(', ')}`); render(); refreshDrawer(); }
+  return done;
 }
 async function dismissMail(msgId) {
   const m = inbox.find(x => x.id === msgId) || await gmailMeta(msgId);
