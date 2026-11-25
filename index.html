@@ -520,8 +520,12 @@ const INVITE = /interview|next steps? (is|would be|will be)|would (love|like) to
 // Conditional and future wording describes the process, not a verdict or an invitation:
 // "If you don't hear from us, we moved forward with others", "If everything aligns, we'll reach out to set up an interview", "interview tips".
 const CONDITIONAL = /[^.!?\n]*\b(if (you )?(don['’]?t|do not|haven['’]?t|have not|didn['’]?t|did not) (hear|receive)|only (contact|reach out to) (the )?(selected|shortlisted|successful)|in case (you )?(don['’]?t|do not) hear|if (everything|all goes|your (profile|experience|skills|background)|we (decide|feel|think|see)|you['’]?(re| are) (shortlisted|selected|a (good |strong )?(fit|match))|there['’]?s? (is )?a (fit|match))|should (your|we|there)|we['’]?(ll| will) (reach out|contact you|be in touch|get in touch|let you know)|interview (tips|questions|prep|preparation)|(what|how) (our|the) (next steps|process|interview)|move forward with (those|candidates|the candidates))[^.!?\n]*[.!?]?/gi;
+// A question back to the candidate keeps the conversation going even after "unfortunately":
+// "we can't meet your salary expectations, our range is X — how flexible are you?"
+const NEGOTIATE = /how flexible|(are|would) you (be )?(open|flexible|willing)|(continu\w*|keep) (the|our) conversation|let (us|me) know (if|whether) (this|that|the range)|does (this|that|the range) work for you|would (this|that) (range )?(work|be acceptable)/i;
 function classify(m) {
   const t = (m.subject + ' ' + m.snippet).replace(CONDITIONAL, ' ');
+  if (NEGOTIATE.test(t)) return 'invite';
   if (REJECT.test(t)) return 'reject';
   if (STRONG_INVITE.test(t)) return 'invite';
   if (CONFIRM.test(t)) return 'confirm';
