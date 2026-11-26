@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="ru">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -61,6 +61,7 @@ h1{font-size:22px;margin:0 0 12px}
 .goal b{font-size:15px}.goal .gbar{flex:1;min-width:160px;height:10px;border-radius:5px;background:var(--panel2);overflow:hidden;display:flex}
 .goal .gbar span{display:block;height:100%;background:var(--green)}.goal .gbar span.talk{background:var(--brand)}
 .goal.done{background:var(--green-soft)}
+.relog{background:var(--panel);box-shadow:var(--shadow);border-left:4px solid var(--brand);border-radius:8px;padding:10px 14px;margin-bottom:14px;cursor:pointer}
 .muted,.meta{color:var(--muted)}.meta{font-size:12px}
 .lozenge{display:inline-block;font-size:11px;font-weight:700;text-transform:uppercase;padding:1px 6px;border-radius:3px;background:var(--panel2);color:var(--muted);white-space:nowrap}
 .lozenge.reject{background:var(--red-soft);color:var(--red)}.lozenge.invite{background:var(--green-soft);color:var(--green)}
@@ -166,21 +167,21 @@ pre.body{white-space:pre-wrap;overflow-wrap:anywhere;font:13px/1.5 inherit;backg
 <body>
 <div class="app" id="app">
   <header>
-    <div class="logo"><i>K</i><span>Job Kanban</span></div>
-    <div class="gsearch"><input id="q" type="search" placeholder="Search company, role, notes, comments" autocomplete="off"></div>
+    <div class="logo"><i>K</i><span>Поиск работы</span></div>
+    <div class="gsearch"><input id="q" type="search" placeholder="Поиск: компания, роль, заметки, комментарии" autocomplete="off"></div>
     <div class="hright">
-      <button class="iconbtn" id="theme" title="Light / dark theme">◐</button>
-      <button class="iconbtn" id="signout" title="Sign out" hidden>⎋</button>
+      <button class="iconbtn" id="theme" title="Светлая / тёмная тема">◐</button>
+      <button class="iconbtn" id="signout" title="Выйти" hidden>⎋</button>
     </div>
   </header>
   <nav id="nav">
-    <div class="sect">Job search</div>
-    <a data-view="board">▦ Board <span class="n" id="nBoard"></span></a>
-    <a data-view="list">☰ List <span class="n" id="nList"></span></a>
-    <a data-view="inbox">✉ Inbox <span class="n" id="nInbox"></span></a>
-    <div class="sect">Data</div>
-    <a id="openSheet" target="_blank" rel="noopener">▤ Google Sheet ↗</a>
-    <a id="reload">⟳ Reload</a>
+    <div class="sect">Поиск работы</div>
+    <a data-view="board">▦ Доска <span class="n" id="nBoard"></span></a>
+    <a data-view="list">☰ Список <span class="n" id="nList"></span></a>
+    <a data-view="inbox">✉ Почта <span class="n" id="nInbox"></span></a>
+    <div class="sect">Данные</div>
+    <a id="openSheet" target="_blank" rel="noopener">▤ Google Таблица ↗</a>
+    <a id="reload">⟳ Обновить</a>
     <div class="foot" id="foot"></div>
   </nav>
   <main id="main"></main>
@@ -200,10 +201,13 @@ const SCOPES = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.goo
 const STATUSES = ['new', 'applied', 'screen', 'interview', 'offer', 'rejected (email)', 'rejected', 'no reply'];
 const CLOSED = ['rejected (email)', 'rejected', 'no reply'];
 const ACTIVE = ['applied', 'screen', 'interview', 'offer'];
-// A successful application = the company talked to me: a screen or further, or a rejection after talking.
-const GOAL = 10, SUCCESS = ['screen', 'interview', 'offer', 'rejected'];
+// Goal: technical interviews. A job counts once it reached "interview" (or "offer"), even if it was rejected later.
+const GOAL = 10, TECH = ['interview', 'offer'];
+const STATUS_LABEL = { 'new': 'Не откликался', 'applied': 'Откликнулся', 'screen': 'Скрининг', 'interview': 'Тех. интервью', 'offer': 'Оффер',
+  'rejected (email)': 'Отказ (письмо)', 'rejected': 'Отказ после общения', 'no reply': 'Нет ответа' };
+const SL = s => STATUS_LABEL[s] || s;
 const KINDS = ['comment', 'cover letter', 'reply'];
-const KIND_LABEL = { 'comment': 'Comment', 'cover letter': 'Cover letter', 'reply': 'Company reply' };
+const KIND_LABEL = { 'comment': 'Комментарий', 'cover letter': 'Сопроводительное', 'reply': 'Ответ компании' };
 const KIND_CLASS = { 'comment': '', 'cover letter': 'cover', 'reply': 'reply' };
 const SHEETS = {
   comments: ['cid', 'job_id', 'at', 'kind', 'text', 'file_name', 'file_url', 'edited_at'],
@@ -269,11 +273,11 @@ async function signIn() {
     callback: r => {
       const p = pendingAuth; pendingAuth = null; if (!p) return;
       if (r.error) return p.rej(new Error(r.error_description || r.error));
-      if (!google.accounts.oauth2.hasGrantedAllScopes(r, ...SCOPES)) return p.rej(new Error('Not every permission was granted. Sign in again and tick all boxes.'));
+      if (!google.accounts.oauth2.hasGrantedAllScopes(r, ...SCOPES)) return p.rej(new Error('Выданы не все разрешения. Войдите снова и отметьте все пункты.'));
       token = { access: r.access_token, exp: Date.now() + r.expires_in * 1000 };
       store.set('kb.token', JSON.stringify(token)); authLost = false; p.res();
     },
-    error_callback: e => { const p = pendingAuth; pendingAuth = null; p?.rej(new Error(e.message || e.type || 'Sign-in closed')); },
+    error_callback: e => { const p = pendingAuth; pendingAuth = null; p?.rej(new Error(e.message || e.type || 'Окно входа закрыто')); },
   });
   return new Promise((res, rej) => { pendingAuth = { res, rej }; tokenClient.requestAccessToken({ prompt: store.get('kb.consented') ? '' : 'consent' }); })
     .then(() => store.set('kb.consented', '1'));
@@ -285,13 +289,13 @@ function signOut() {
 $('#signout').onclick = signOut;
 
 async function api(url, { method = 'GET', body, headers = {}, raw = false } = {}) {
-  if (!token || token.exp < Date.now() + 20000) { loseAuth(); throw new AuthError('Session expired'); }
+  if (!token || token.exp < Date.now() + 20000) { loseAuth(); throw new AuthError('Сессия истекла'); }
   const r = await fetch(url, {
     method,
     headers: { Authorization: 'Bearer ' + token.access, ...(body !== undefined && !raw ? { 'Content-Type': 'application/json' } : {}), ...headers },
     body: body === undefined ? undefined : raw ? body : JSON.stringify(body),
   });
-  if (r.status === 401) { loseAuth(); throw new AuthError('Session expired'); }
+  if (r.status === 401) { loseAuth(); throw new AuthError('Сессия истекла'); }
   if (!r.ok) { let m = ''; try { m = (await r.json()).error.message; } catch (e) { m = r.statusText; } throw new Error(m || 'HTTP ' + r.status); }
   return r.status === 204 ? null : r.json();
 }
@@ -334,7 +338,7 @@ async function jobRow(j) {
   if (v === j.id) return j.row;
   const ids = (await batchGet([`jobs!${col}:${col}`], 'valueRenderOption=FORMATTED_VALUE'))[0];
   const i = ids.findIndex(r => r[0] === j.id);
-  if (i < 1) throw new Error(`Job ${j.id} is no longer in the sheet — reload`);
+  if (i < 1) throw new Error(`Вакансии ${j.id} больше нет в таблице — обновите`);
   return j.row = i + 1;
 }
 async function commentRow(c) {
@@ -342,7 +346,7 @@ async function commentRow(c) {
   if (v === c.cid) return c._row;
   const ids = (await batchGet(['comments!A:A'], 'valueRenderOption=FORMATTED_VALUE'))[0];
   const i = ids.findIndex(r => r[0] === c.cid);
-  if (i < 1) throw new Error('Comment is no longer in the sheet — reload');
+  if (i < 1) throw new Error('Комментария больше нет в таблице — обновите');
   return c._row = i + 1;
 }
 
@@ -352,10 +356,10 @@ function normStatus(raw, applied) {
 }
 
 async function load() {
-  setStat('Loading…');
+  setStat('Загрузка…');
   const meta = await api(`${SH()}?fields=properties.title,sheets.properties(sheetId,title)`);
   gids = Object.fromEntries(meta.sheets.map(s => [s.properties.title, s.properties.sheetId]));
-  if (!('jobs' in gids)) throw new Error('This spreadsheet has no "jobs" sheet');
+  if (!('jobs' in gids)) throw new Error('В таблице нет листа "jobs"');
   await ensureSheets();
   const [jobsV] = await batchGet(['jobs'], 'valueRenderOption=FORMATTED_VALUE');
   const [cV, aV, mV] = await batchGet(['comments', 'activity', 'mail'], 'valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=SERIAL_NUMBER');
@@ -414,7 +418,7 @@ async function setStatus(id, status) {
     await setFields(j, { status: T(status), applied_on: j.applied_on });
     await logActivity(j, 'status', prev.status + ' → ' + status);
   } catch (e) {
-    Object.assign(j, prev); if (!(e instanceof AuthError)) toast('Not saved: ' + e.message);
+    Object.assign(j, prev); if (!(e instanceof AuthError)) toast('Не сохранено: ' + e.message);
     throw e;
   } finally { saving.delete(id); render(); }
 }
@@ -430,7 +434,7 @@ async function addComment(j, kind, text, file) {
   return c;
 }
 async function editComment(c, kind, text) {
-  if (!text.trim() && !c.file_url) throw new Error('Empty comment — delete it instead');
+  if (!text.trim() && !c.file_url) throw new Error('Пустой комментарий — лучше удалите его');
   const row = await commentRow(c), at = localStamp();
   await writeCells([{ range: `comments!D${row}:E${row}`, values: [[kind, T(text)]] }, { range: `comments!H${row}`, values: [[at]] }]);
   Object.assign(c, { kind, text, edited_at: at.slice(0, 16) });
@@ -443,7 +447,7 @@ async function deleteComment(c) {
   const m = /\/d\/([\w-]+)|[?&]id=([\w-]+)/.exec(c.file_url || '');
   if (m) {
     try { await api(`https://www.googleapis.com/drive/v3/files/${m[1] || m[2]}`, { method: 'PATCH', body: { trashed: true } }); }
-    catch (e) { toast('Comment deleted. Its file stays in Drive (uploaded by the old Apps Script kanban).'); }
+    catch (e) { toast('Комментарий удалён. Файл остался в Drive (его загрузил старый канбан на Apps Script).'); }
   }
 }
 
@@ -539,7 +543,7 @@ async function classifyDeep(m) {
   catch (e) { if (e instanceof AuthError) throw e; }
   return m;
 }
-const KIND_BADGE = { reject: ['reject', 'Rejection?'], invite: ['invite', 'Invitation?'], confirm: ['', 'Confirmation'], other: ['', 'Other'] };
+const KIND_BADGE = { reject: ['reject', 'Отказ?'], invite: ['invite', 'Приглашение?'], confirm: ['', 'Подтверждение'], other: ['', 'Другое'] };
 
 // Names to look for in mail: "Todoist (Doist)" → Todoist, Doist. Generic names give nothing.
 const GENERIC = /^(confidential( company)?|stealth( startup)?|undisclosed|company|client|our client|recruiter|unknown)$/i;
@@ -614,7 +618,7 @@ async function acceptSuggestion(msgId) {
   if (!to) return;
   await setStatus(j.id, to);
   await saveMailAsReply(m, j, 'accepted');
-  toast(`${j.company}: moved to ${to}, the email is saved as a company reply`);
+  toast(`${j.company}: статус «${SL(to)}», письмо сохранено как ответ компании`);
   render(); refreshDrawer();
 }
 // On open, rejections are applied without asking; invitations stay as suggestions (the classifier mistakes confirmations for them).
@@ -622,10 +626,10 @@ async function autoApplyRejections() {
   const done = [];
   for (const m of inbox.filter(x => ['rejected (email)', 'rejected'].includes(suggestion(x)))) {
     const j = byId(m.job_id), to = suggestion(m);
-    try { await setStatus(j.id, to); await saveMailAsReply(m, j, 'auto'); done.push(`${j.company} → ${to}`); }
+    try { await setStatus(j.id, to); await saveMailAsReply(m, j, 'auto'); done.push(`${j.company} → ${SL(to)}`); }
     catch (e) { if (e instanceof AuthError) break; console.warn('auto-apply failed', j.company, e); }
   }
-  if (done.length) { toast(`Rejections from mail: ${done.join(', ')}`); render(); refreshDrawer(); }
+  if (done.length) { toast(`Отказы из почты: ${done.join(', ')}`); render(); refreshDrawer(); }
   return done;
 }
 async function dismissMail(msgId) {
@@ -672,14 +676,14 @@ function visible(j) {
   return true;
 }
 
-const waveTag = j => `<span class="tag ${j.wave === 'gold' ? 'gold' : ''}">${j.wave === 'gold' ? 'gold' : j.wave === '-' ? 'skip' : 'wave ' + esc(j.wave)}</span>`;
-const money = j => j.salary ? `<div class="money">${esc(j.salary)}</div>` : `<div class="money none">salary not listed</div>`;
-const statusSelect = j => `<select class="st" data-id="${esc(j.id)}">${STATUSES.map(s => `<option${s === j.status ? ' selected' : ''}>${s}</option>`).join('')}</select>`;
+const waveTag = j => `<span class="tag ${j.wave === 'gold' ? 'gold' : ''}">${j.wave === 'gold' ? 'gold' : j.wave === '-' ? 'пропуск' : 'волна ' + esc(j.wave)}</span>`;
+const money = j => j.salary ? `<div class="money">${esc(j.salary)}</div>` : `<div class="money none">зарплата не указана</div>`;
+const statusSelect = j => `<select class="st" data-id="${esc(j.id)}">${STATUSES.map(s => `<option value="${s}"${s === j.status ? ' selected' : ''}>${SL(s)}</option>`).join('')}</select>`;
 function suggHtml(j) {
   return suggestionsFor(j.id).slice(0, 2).map(m => {
     const to = suggestion(m);
-    return `<div class="sugg ${m.kind}" data-msg="${esc(m.id)}"><span>✉ ${m.kind === 'reject' ? 'Looks like a rejection' : 'Looks like an invitation'}: “${esc(m.subject.slice(0, 70))}”</span>
-      <button data-act="accept">→ ${esc(to)}</button><button data-act="peek">Read</button><button data-act="dismiss" title="Not about this job / ignore">✕</button></div>`;
+    return `<div class="sugg ${m.kind}" data-msg="${esc(m.id)}"><span>✉ ${m.kind === 'reject' ? 'Похоже на отказ' : 'Похоже на приглашение'}: “${esc(m.subject.slice(0, 70))}”</span>
+      <button data-act="accept">→ ${esc(SL(to))}</button><button data-act="peek">Читать</button><button data-act="dismiss" title="Не про эту вакансию / игнорировать">✕</button></div>`;
   }).join('');
 }
 function card(j) {
@@ -687,38 +691,38 @@ function card(j) {
   return `<div class="icard${saving.has(j.id) ? ' saving' : ''}" draggable="true" data-id="${esc(j.id)}">
     <div class="co">${esc(j.company)}</div><div class="role">${esc(j.role)}</div>${money(j)}
     <div class="meta">${esc(j.location)}</div>
-    <div class="tags">${waveTag(j)}<span class="tag">tier ${esc(j.tier)}</span>
+    <div class="tags">${waveTag(j)}<span class="tag">тир ${esc(j.tier)}</span>
       ${j.company_type ? `<span class="tag">${esc(String(j.company_type).split(' ')[0])}</span>` : ''}
-      ${j.applied_on ? `<span class="tag">applied ${esc(j.applied_on)}</span>` : ''}
-      ${files ? `<span class="tag blue">📎 ${files}</span>` : ''}${kinds.has('cover letter') ? '<span class="tag blue">✉ letter</span>' : ''}${kinds.has('reply') ? '<span class="tag blue">↩ reply</span>' : ''}</div>
+      ${j.applied_on ? `<span class="tag">отклик ${esc(j.applied_on)}</span>` : ''}
+      ${files ? `<span class="tag blue">📎 ${files}</span>` : ''}${kinds.has('cover letter') ? '<span class="tag blue">✉ письмо</span>' : ''}${kinds.has('reply') ? '<span class="tag blue">↩ ответ</span>' : ''}</div>
     ${last ? `<div class="note">💬 ${esc(lastText(last))}</div>` : ''}
     ${suggHtml(j)}
-    <div class="actions">${statusSelect(j)}${safeUrl(j.apply_url) ? `<a href="${esc(j.apply_url)}" target="_blank" rel="noopener">Open ↗</a>` : ''}<span class="meta" style="margin-left:auto">${cs.length ? '💬 ' + cs.length : ''}</span></div>
+    <div class="actions">${statusSelect(j)}${safeUrl(j.apply_url) ? `<a href="${esc(j.apply_url)}" target="_blank" rel="noopener">Открыть ↗</a>` : ''}<span class="meta" style="margin-left:auto">${cs.length ? '💬 ' + cs.length : ''}</span></div>
   </div>`;
 }
 
 function toolbar(extra = '') {
   const sel = (id, opts) => `<select data-f="${id}">${opts.map(([v, n]) => `<option value="${v}"${F[id] === v ? ' selected' : ''}>${n}</option>`).join('')}</select>`;
   return `<div class="toolbar">
-    ${sel('wave', [['active', 'Waves 1 + gold'], ['gold', 'Gold only'], ['1', 'Wave 1 only'], ['all', 'All, incl. tier D']])}
-    ${sel('tier', [['', 'Any tier'], ['A', 'Tier A'], ['B', 'Tier B'], ['C', 'Tier C'], ['D', 'Tier D']])}
-    ${sel('ctype', [['', 'Any company type'], ['product', 'Product'], ['outsourcing', 'Outsourcing'], ['recruiter', 'Recruiter'], ['unknown', 'Unknown']])}
-    ${sel('region', [['', 'Any location'], ['remote', 'Remote'], ['japan', 'Japan'], ['belgrade', 'Belgrade / Serbia'], ['uk', 'UK / London'], ['other', 'Other on-site']])}
-    ${sel('fstatus', [['', 'Any status'], ['open', 'Not applied yet'], ['active', 'In progress'], ['closed', 'Closed']])}
-    <button class="chip${F.paid ? ' on' : ''}" data-chip="paid">With salary</button>
-    <button class="chip${hideClosed ? ' on' : ''}" data-chip="hideClosed" title="Hides rejected (email), rejected and no reply">Hide closed</button>
-    <button class="btn" id="resetF">Reset</button>${extra}
+    ${sel('wave', [['active', 'Волна 1 + gold'], ['gold', 'Только gold'], ['1', 'Только волна 1'], ['all', 'Все, включая тир D']])}
+    ${sel('tier', [['', 'Любой тир'], ['A', 'Тир A'], ['B', 'Тир B'], ['C', 'Тир C'], ['D', 'Тир D']])}
+    ${sel('ctype', [['', 'Любой тип компании'], ['product', 'Продукт'], ['outsourcing', 'Аутсорс'], ['recruiter', 'Рекрутер'], ['unknown', 'Неизвестно']])}
+    ${sel('region', [['', 'Любая локация'], ['remote', 'Удалённо'], ['japan', 'Япония'], ['belgrade', 'Белград / Сербия'], ['uk', 'UK / Лондон'], ['other', 'Другой офис']])}
+    ${sel('fstatus', [['', 'Любой статус'], ['open', 'Ещё не откликался'], ['active', 'В процессе'], ['closed', 'Закрытые']])}
+    <button class="chip${F.paid ? ' on' : ''}" data-chip="paid">С зарплатой</button>
+    <button class="chip${hideClosed ? ' on' : ''}" data-chip="hideClosed" title="Скрывает отказы и «нет ответа»">Скрыть закрытые</button>
+    <button class="btn" id="resetF">Сбросить</button>${extra}
     <span class="count" id="count"></span></div>`;
 }
 
 function render() {
-  if (!CLIENT_ID) return gate(`<h2>Almost there</h2><p>The OAuth client id is not set yet in <code>index.html</code>.</p>`);
-  if (!sheetId) return gate(`<h2>Connect your sheet</h2><p>Paste the link to the Google Sheet with the <b>jobs</b> list. It stays in this browser only.</p>
-    <input id="sheetUrl" placeholder="https://docs.google.com/spreadsheets/d/…"><button class="btn primary" id="sheetSave">Continue</button>`);
-  if (!token) return gate(`<h2>${authLost ? 'Session expired' : 'Sign in'}</h2><p>${authLost ? 'Google access lasts an hour. Sign in again to continue — nothing was lost.' : 'Sign in with the Google account that owns the job sheet.'}</p>
-    <button class="btn primary" id="signin">Sign in with Google</button><p class="meta" id="gateErr"></p>`);
-  if (!loaded) return gate(`<h2>Loading…</h2><p class="meta" id="gateErr"></p>`);
-  $('#signout').hidden = false;
+  if (!CLIENT_ID) return gate(`<h2>Почти готово</h2><p>В <code>index.html</code> ещё не указан OAuth client id.</p>`);
+  if (!sheetId) return gate(`<h2>Подключите таблицу</h2><p>Вставьте ссылку на Google Таблицу со списком <b>jobs</b>. Она хранится только в этом браузере.</p>
+    <input id="sheetUrl" placeholder="https://docs.google.com/spreadsheets/d/…"><button class="btn primary" id="sheetSave">Продолжить</button>`);
+  if (!token && !loaded) return gate(`<h2>${authLost ? 'Сессия истекла' : 'Вход'}</h2><p>${authLost ? 'Доступ Google действует час. Войдите снова — ничего не потерялось.' : 'Войдите через Google-аккаунт, которому принадлежит таблица.'}</p>
+    <button class="btn primary" id="signin">Войти через Google</button><p class="meta" id="gateErr"></p>`);
+  if (!loaded) return gate(`<h2>Загрузка…</h2><p class="meta" id="gateErr"></p>`);
+  $('#signout').hidden = !token;
   $$('#nav [data-view]').forEach(a => a.classList.toggle('active', a.dataset.view === view));
   const shown = jobs.filter(visible);
   $('#nBoard').textContent = shown.length; $('#nList').textContent = shown.length;
@@ -726,19 +730,21 @@ function render() {
   const nr = inbox.filter(m => INBOX_FILTERS[0][2](m) && !mailRows.has(m.id)).length, ni = $('#nInbox');
   ni.textContent = inboxState === 'loading' ? '…' : nr || ''; ni.classList.toggle('hot', nr > 0);
   const main = $('#main');
-  if (view === 'inbox') main.innerHTML = inboxHtml();
-  else if (view === 'list') main.innerHTML = `<h1>List</h1>${goalHtml()}${toolbar()}${listHtml(shown)}`;
-  else main.innerHTML = `<h1>Board</h1>${goalHtml()}${toolbar()}${boardHtml(shown)}`;
-  setStat(view === 'inbox' ? '' : `${shown.length} shown · ${jobs.length} in sheet`);
+  const relog = token ? '' : `<div class="relog" id="relog">🔑 Доступ Google истёк (он действует час). Нажмите где угодно — вход продлится без потери данных.</div>`;
+  if (view === 'inbox') main.innerHTML = relog + inboxHtml();
+  else if (view === 'list') main.innerHTML = relog + `<h1>Список</h1>${goalHtml()}${toolbar()}${listHtml(shown)}`;
+  else main.innerHTML = relog + `<h1>Доска</h1>${goalHtml()}${toolbar()}${boardHtml(shown)}`;
+  setStat(view === 'inbox' ? '' : `показано ${shown.length} · в таблице ${jobs.length}`);
 }
 function goalHtml() {
-  const won = jobs.filter(j => SUCCESS.includes(j.status)), sent = jobs.filter(j => j.status !== 'new').length;
-  const live = won.filter(j => j.status !== 'rejected').length, n = won.length;
+  const reached = j => TECH.includes(j.status) || history.some(h => h.id === j.id && h.event === 'status' && TECH.includes(h.details.split(' → ')[1]));
+  const won = jobs.filter(reached), n = won.length, live = won.filter(j => TECH.includes(j.status)).length;
+  const sent = jobs.filter(j => j.status !== 'new').length, talks = jobs.filter(j => ['screen', 'interview', 'offer', 'rejected'].includes(j.status)).length;
   const pct = x => Math.min(100, x / GOAL * 100);
-  return `<div class="goal${n >= GOAL ? ' done' : ''}" title="Success = the company talked to you: screen, interview, offer, or a rejection after talking">
-    <b>🎯 ${n} / ${GOAL}</b><span>successful applications${n >= GOAL ? ' — goal reached!' : ''}</span>
+  return `<div class="goal${n >= GOAL ? ' done' : ''}" title="Считаются вакансии, дошедшие до технического интервью (или оффера), даже если потом был отказ">
+    <b>🎯 ${n} / ${GOAL}</b><span>технических интервью${n >= GOAL ? ' — цель достигнута!' : ''}</span>
     <div class="gbar"><span style="width:${pct(live)}%"></span><span class="talk" style="width:${pct(n - live)}%"></span></div>
-    <span class="meta">${live} in progress · ${n - live} rejected after talking · ${sent} sent · ${sent ? (n / sent * 100).toFixed(1) : 0}% response</span></div>`;
+    <span class="meta">${live} в процессе · ${n - live} отказ после интервью · ${talks} дошли до общения · ${sent} откликов</span></div>`;
 }
 function gate(html) {
   $('#main').innerHTML = `<div class="gate">${html}</div>`;
@@ -749,11 +755,11 @@ function boardHtml(list) {
   const cols = hideClosed ? STATUSES.filter(s => !CLOSED.includes(s)) : STATUSES;
   return `<div class="board">${cols.map(s => {
     const l = list.filter(j => j.status === s);
-    return `<div class="col" data-status="${s}"><h4><span>${s}</span><span>${l.length}</span></h4><div class="drop">${l.map(card).join('')}</div></div>`;
+    return `<div class="col" data-status="${s}"><h4><span>${SL(s)}</span><span>${l.length}</span></h4><div class="drop">${l.map(card).join('')}</div></div>`;
   }).join('')}</div>`;
 }
 
-const COLS = [['tier', 'Tier'], ['wave', 'Wave'], ['company', 'Company'], ['role', 'Role'], ['salary', 'Salary'], ['location', 'Location'], ['status', 'Status'], ['applied_on', 'Applied'], ['comments', 'Comments']];
+const COLS = [['tier', 'Тир'], ['wave', 'Волна'], ['company', 'Компания'], ['role', 'Роль'], ['salary', 'Зарплата'], ['location', 'Локация'], ['status', 'Статус'], ['applied_on', 'Отклик'], ['comments', 'Комментарии']];
 function listHtml(list) {
   const rank = { gold: 0, '1': 1, '-': 2 };
   const key = j => sortKey === 'wave' ? (rank[j.wave] ?? 3) : sortKey === 'status' ? STATUSES.indexOf(j.status)
@@ -768,40 +774,40 @@ function listHtml(list) {
       <td>${j.salary ? `<span class="money">${esc(j.salary)}</span>` : '<span class="meta">—</span>'}</td>
       <td class="meta">${esc(j.location)}</td><td>${statusSelect(j)}</td><td class="meta">${esc(j.applied_on)}</td>
       <td class="meta">${cs.length ? `💬 ${cs.length} · ${esc(lastText(last).slice(0, 60))}` : ''}</td>
-      <td>${safeUrl(j.apply_url) ? `<a href="${esc(j.apply_url)}" target="_blank" rel="noopener">Open ↗</a>` : ''}</td></tr>`; }).join('')}</tbody></table>`;
+      <td>${safeUrl(j.apply_url) ? `<a href="${esc(j.apply_url)}" target="_blank" rel="noopener">Открыть ↗</a>` : ''}</td></tr>`; }).join('')}</tbody></table>`;
 }
 
 function jobOptions(sel) {
   const opts = jobs.filter(j => j.status !== 'new' || j.applied_on).sort((a, b) => String(a.company).localeCompare(String(b.company)));
-  return `<option value="">— not linked —</option>` + opts.map(j => `<option value="${esc(j.id)}"${j.id === sel ? ' selected' : ''}>${esc(j.company)} — ${esc(String(j.role).slice(0, 40))} (${esc(j.status)})</option>`).join('');
+  return `<option value="">— не привязано —</option>` + opts.map(j => `<option value="${esc(j.id)}"${j.id === sel ? ' selected' : ''}>${esc(j.company)} — ${esc(String(j.role).slice(0, 40))} (${esc(SL(j.status))})</option>`).join('');
 }
 // Automated senders (ATS, no-reply, team mailboxes) versus a recruiter writing in person.
 const AUTO_SENDER = /no-?reply|notification|\bteam\b|careers|\bjobs?\b|talent|recruit|hiring|\bhr\b|people|workable|greenhouse|lever|ashby|smartrecruiters|teamtailor|recruitee|personio|factorial|hrmos|linkedin|采用|採用/i;
 const isPerson = m => !AUTO_SENDER.test(m.from) && /\s/.test(senderName(m.from).replace(/\s+-\s+.*$/, ''));
 const INBOX_FILTERS = [
   // Everything about a job except plain "we received your application" notes.
-  ['important', 'Important', m => m.job_id && m.kind !== 'confirm'],
-  ['invite', 'Invitations', m => m.kind === 'invite'],
-  ['reject', 'Rejections', m => m.kind === 'reject'],
-  ['confirm', 'Confirmations', m => m.kind === 'confirm'],
-  ['all', 'All', () => true],
+  ['important', 'Важное', m => m.job_id && m.kind !== 'confirm'],
+  ['invite', 'Приглашения', m => m.kind === 'invite'],
+  ['reject', 'Отказы', m => m.kind === 'reject'],
+  ['confirm', 'Подтверждения', m => m.kind === 'confirm'],
+  ['all', 'Все', () => true],
 ];
 function dayLabel(d) {
   const t = new Date(); t.setHours(0, 0, 0, 0);
   const x = new Date(d); x.setHours(0, 0, 0, 0);
   const diff = Math.round((t - x) / 864e5);
-  return diff === 0 ? 'Today' : diff === 1 ? 'Yesterday' : x.toLocaleDateString(undefined, { day: 'numeric', month: 'short', weekday: diff < 7 ? 'short' : undefined });
+  return diff === 0 ? 'Сегодня' : diff === 1 ? 'Вчера' : x.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', weekday: diff < 7 ? 'short' : undefined });
 }
 function inboxHtml() {
   const f = INBOX_FILTERS.find(x => x[0] === inboxF) || INBOX_FILTERS[0];
-  const head = `<h1>Inbox</h1><div class="toolbar">
+  const head = `<h1>Почта</h1><div class="toolbar">
     ${INBOX_FILTERS.map(([k, n, fn]) => `<button class="chip${k === f[0] ? ' on' : ''}" data-inbox="${k}">${n} <span class="cnt">${inbox.filter(fn).length}</span></button>`).join('')}
-    <button class="btn" id="rescan">⟳ Check mail</button>
-    <span class="count">${inboxState === 'loading' ? 'Reading Gmail…' : `Gmail, last ${INBOX_DAYS} days · read-only`}</span></div>`;
-  if (inboxState === 'loading' && !inbox.length) return head + '<p class="muted">Reading Gmail…</p>';
-  if (inboxState === 'error' && !inbox.length) return head + `<p class="muted">Could not read Gmail: ${esc(inboxError)}</p>`;
+    <button class="btn" id="rescan">⟳ Проверить почту</button>
+    <span class="count">${inboxState === 'loading' ? 'Читаю Gmail…' : `Gmail, последние ${INBOX_DAYS} дней · только чтение`}</span></div>`;
+  if (inboxState === 'loading' && !inbox.length) return head + '<p class="muted">Читаю Gmail…</p>';
+  if (inboxState === 'error' && !inbox.length) return head + `<p class="muted">Не удалось прочитать Gmail: ${esc(inboxError)}</p>`;
   const list = inbox.filter(f[2]).sort((a, b) => b.date - a.date);
-  if (!list.length) return head + `<p class="muted">${f[0] === 'invite' ? 'No invitations yet.' : 'Nothing here.'}</p>`;
+  if (!list.length) return head + `<p class="muted">${f[0] === 'invite' ? 'Приглашений пока нет.' : 'Здесь пусто.'}</p>`;
   let out = '', day = '';
   for (const m of list) {
     const dl = dayLabel(m.date);
@@ -814,13 +820,13 @@ function mailCardHtml(m) {
   const j = byId(m.job_id), rec = mailRows.get(m.id), to = suggestion(m), [cls, label] = KIND_BADGE[m.kind], person = isPerson(m);
   const sender = senderName(m.from).replace(/\s+-\s+.*$/, '');
   return `<div class="mcard k-${esc(m.kind)}" data-msg="${esc(m.id)}">
-    <div class="mtop"><b class="mco">${esc(j ? j.company : sender)}</b>${j ? `<span class="meta mrole">${esc(String(j.role).slice(0, 60))}</span><span class="lozenge ${CLOSED.includes(j.status) ? 'reject' : ['screen', 'interview', 'offer'].includes(j.status) ? 'invite' : 'blue'}">${esc(j.status)}</span>` : ''}
+    <div class="mtop"><b class="mco">${esc(j ? j.company : sender)}</b>${j ? `<span class="meta mrole">${esc(String(j.role).slice(0, 60))}</span><span class="lozenge ${CLOSED.includes(j.status) ? 'reject' : ['screen', 'interview', 'offer'].includes(j.status) ? 'invite' : 'blue'}">${esc(SL(j.status))}</span>` : ''}
       <span class="meta mtime">${esc(localStamp(m.date).slice(11, 16))}</span></div>
-    <div class="mfrom"><span title="${person ? 'Written by a person' : 'Automated / ATS'}">${person ? '👤' : '⚙'}</span> ${esc(sender)} <span class="lozenge ${cls}">${label}</span>${rec ? `<span class="meta"> · ${esc(rec.verdict === 'auto' ? 'applied automatically' : rec.verdict)}</span>` : ''}</div>
+    <div class="mfrom"><span title="${person ? 'Написал человек' : 'Автоматическое / ATS'}">${person ? '👤' : '⚙'}</span> ${esc(sender)} <span class="lozenge ${cls}">${label}</span>${rec ? `<span class="meta"> · ${esc(VERDICT[rec.verdict] || rec.verdict)}</span>` : ''}</div>
     <div class="msubj">${esc(m.subject)}</div><div class="msnip">${esc(m.snippet)}</div><pre class="body" hidden></pre>
-    <div class="acts">${to ? `<button class="btn sm primary" data-act="accept">→ ${esc(to)}</button>` : ''}
-      <button class="btn sm" data-act="peek">Read</button>${j ? '<button class="btn sm" data-act="open">Open job</button>' : ''}
-      ${!rec ? `${j ? '' : `<select data-link="${esc(m.id)}">${jobOptions(m.job_id)}</select>`}<button class="btn sm" data-act="save" title="Save as company reply on the job">Save to job</button><button class="btn sm" data-act="dismiss">Dismiss</button>` : ''}
+    <div class="acts">${to ? `<button class="btn sm primary" data-act="accept">→ ${esc(SL(to))}</button>` : ''}
+      <button class="btn sm" data-act="peek">Читать</button>${j ? '<button class="btn sm" data-act="open">К вакансии</button>' : ''}
+      ${!rec ? `${j ? '' : `<select data-link="${esc(m.id)}">${jobOptions(m.job_id)}</select>`}<button class="btn sm" data-act="save" title="Сохранить как ответ компании в карточке">В карточку</button><button class="btn sm" data-act="dismiss">Скрыть</button>` : ''}
       <a class="btn sm" href="${gmailLink(m)}" target="_blank" rel="noopener">Gmail ↗</a></div></div>`;
 }
 
@@ -834,73 +840,74 @@ function closeDrawer() {
 }
 function refreshDrawer() { if (openId && document.body.classList.contains('dopen')) drawerHtml(); }
 
-const INFO = [['salary', 'Salary'], ['location', 'Location'], ['applied_on', 'Applied on'], ['tier', 'Tier'], ['wave', 'Wave'], ['company_type', 'Company type'], ['check', 'Check'], ['notes', 'Research notes'], ['added', 'Added'], ['raw_status', 'Status in sheet'], ['id', 'Id']];
+const INFO = [['salary', 'Зарплата'], ['location', 'Локация'], ['applied_on', 'Дата отклика'], ['tier', 'Тир'], ['wave', 'Волна'], ['company_type', 'Тип компании'], ['check', 'Проверка'], ['notes', 'Заметки'], ['added', 'Добавлено'], ['raw_status', 'Статус в таблице'], ['id', 'Id']];
+const VERDICT = { auto: 'применено автоматически', accepted: 'принято', linked: 'привязано', dismissed: 'скрыто' };
 const kindOptions = sel => KINDS.map(k => `<option value="${k}"${k === sel ? ' selected' : ''}>${KIND_LABEL[k]}</option>`).join('');
 function drawerHtml() {
   const j = byId(openId); if (!j) return closeDrawer();
   const draft = $('#newText') && $('#drawer').dataset.id === j.id ? { text: $('#newText').value, kind: $('#newKind').value } : null;
   $('#drawer').dataset.id = j.id;
   $('#drawer').innerHTML = `<div class="dhead"><div style="flex:1"><div class="meta">${esc(j.id)} · ${esc(j.company_type || '')}</div><h2>${esc(j.company)}</h2><div class="role">${esc(j.role)}</div>
-      <div class="actions">${statusSelect(j)}${safeUrl(j.apply_url) ? `<a href="${esc(j.apply_url)}" target="_blank" rel="noopener">Open vacancy ↗</a>` : ''}</div>${suggHtml(j)}</div>
-      <button class="iconbtn" id="dclose" title="Close (Esc)">✕</button></div>
+      <div class="actions">${statusSelect(j)}${safeUrl(j.apply_url) ? `<a href="${esc(j.apply_url)}" target="_blank" rel="noopener">Открыть вакансию ↗</a>` : ''}</div>${suggHtml(j)}</div>
+      <button class="iconbtn" id="dclose" title="Закрыть (Esc)">✕</button></div>
     <div class="dbody"><div>
-      <div class="tabs">${[['all', 'All'], ['comments', 'Comments'], ['history', 'History'], ['mail', 'Mail']].map(([k, n]) => `<button data-tab="${k}" class="${tab === k ? 'on' : ''}">${n}</button>`).join('')}
-        <button class="order" id="order">${newestFirst ? 'Newest first ↓' : 'Oldest first ↑'}</button></div>
-      <div class="composer idle" id="composer"${tab === 'mail' ? ' hidden' : ''}><div class="avatar">Me</div>
-        <div><textarea id="newText" placeholder="Add a comment…  (⌘/Ctrl+Enter to save)"></textarea>
+      <div class="tabs">${[['all', 'Всё'], ['comments', 'Комментарии'], ['history', 'История'], ['mail', 'Почта']].map(([k, n]) => `<button data-tab="${k}" class="${tab === k ? 'on' : ''}">${n}</button>`).join('')}
+        <button class="order" id="order">${newestFirst ? 'Сначала новые ↓' : 'Сначала старые ↑'}</button></div>
+      <div class="composer idle" id="composer"${tab === 'mail' ? ' hidden' : ''}><div class="avatar">Я</div>
+        <div><textarea id="newText" placeholder="Добавить комментарий…  (⌘/Ctrl+Enter — сохранить)"></textarea>
           <div class="bar"><select id="newKind">${kindOptions('comment')}</select>
             <label class="meta">📎 <input type="file" id="newFile"></label>
-            <button class="btn primary" id="addBtn">Save</button><button class="btn" id="cancelBtn">Cancel</button><span class="meta" id="addState"></span></div></div></div>
+            <button class="btn primary" id="addBtn">Сохранить</button><button class="btn" id="cancelBtn">Отмена</button><span class="meta" id="addState"></span></div></div></div>
       <ul class="feed" id="feed"></ul>
     </div><div class="side">
-      <div class="box"><h5>Details</h5><dl>${INFO.map(([k, n]) => `<dt>${n}</dt><dd>${esc(j[k]) || '<span class="muted">—</span>'}</dd>`).join('')}
-        <dt>Apply URL</dt><dd>${safeUrl(j.apply_url) ? `<a href="${esc(j.apply_url)}" target="_blank" rel="noopener">${esc(j.apply_url)}</a>` : '—'}</dd></dl></div>
-      <div class="box"><h5>Mail search</h5><input id="mailQ" value="${esc(j.mail_query || '')}" placeholder="${esc(mailQuery({ company: j.company }) || 'from:company.com')}">
-        <div class="meta" style="margin-top:6px">Gmail query for the Mail tab. Empty = company name. Mail before the apply date is skipped.</div>
-        <div class="bar"><button class="btn sm" id="mailQSave">Save</button><span class="meta" id="mailQState"></span></div></div>
+      <div class="box"><h5>Детали</h5><dl>${INFO.map(([k, n]) => `<dt>${n}</dt><dd>${esc(j[k]) || '<span class="muted">—</span>'}</dd>`).join('')}
+        <dt>Ссылка на вакансию</dt><dd>${safeUrl(j.apply_url) ? `<a href="${esc(j.apply_url)}" target="_blank" rel="noopener">${esc(j.apply_url)}</a>` : '—'}</dd></dl></div>
+      <div class="box"><h5>Поиск почты</h5><input id="mailQ" value="${esc(j.mail_query || '')}" placeholder="${esc(mailQuery({ company: j.company }) || 'from:company.com')}">
+        <div class="meta" style="margin-top:6px">Запрос Gmail для вкладки «Почта». Пусто = название компании. Письма до даты отклика не показываются.</div>
+        <div class="bar"><button class="btn sm" id="mailQSave">Сохранить</button><span class="meta" id="mailQState"></span></div></div>
     </div></div>`;
   if (draft) { $('#newText').value = draft.text; $('#newKind').value = draft.kind; if (draft.text) $('#composer').classList.remove('idle'); }
   renderFeed();
 }
 
 function commentHtml(c) {
-  if (editing === c.cid) return `<li class="item" data-cid="${esc(c.cid)}"><div class="avatar">Me</div><div><textarea class="editText">${esc(c.text)}</textarea>
-    <div class="bar"><select class="editKind">${kindOptions(c.kind)}</select><button class="btn primary sm" data-act="save">Save</button><button class="btn sm" data-act="cancel">Cancel</button><span class="meta state"></span></div></div></li>`;
-  return `<li class="item" data-cid="${esc(c.cid)}"><div class="avatar">Me</div><div>
-    <div class="who"><b>Me</b><span class="kind ${KIND_CLASS[c.kind] || ''}">${esc(KIND_LABEL[c.kind] || c.kind)}</span>
-      <span class="meta">${esc(c.at)}${c.edited_at ? ' · edited ' + esc(c.edited_at) : ''}</span></div>
+  if (editing === c.cid) return `<li class="item" data-cid="${esc(c.cid)}"><div class="avatar">Я</div><div><textarea class="editText">${esc(c.text)}</textarea>
+    <div class="bar"><select class="editKind">${kindOptions(c.kind)}</select><button class="btn primary sm" data-act="save">Сохранить</button><button class="btn sm" data-act="cancel">Отмена</button><span class="meta state"></span></div></div></li>`;
+  return `<li class="item" data-cid="${esc(c.cid)}"><div class="avatar">Я</div><div>
+    <div class="who"><b>Я</b><span class="kind ${KIND_CLASS[c.kind] || ''}">${esc(KIND_LABEL[c.kind] || c.kind)}</span>
+      <span class="meta">${esc(c.at)}${c.edited_at ? ' · изменено ' + esc(c.edited_at) : ''}</span></div>
     ${c.text ? `<div class="text">${linkify(c.text)}</div>` : ''}
     ${safeUrl(c.file_url) ? `<a class="file" href="${esc(c.file_url)}" target="_blank" rel="noopener">📎 ${esc(c.file_name)}</a>` : ''}
-    <div class="links"><button data-act="edit">Edit</button><button data-act="delete">Delete</button></div></div></li>`;
+    <div class="links"><button data-act="edit">Изменить</button><button data-act="delete">Удалить</button></div></div></li>`;
 }
 function historyHtml(h) {
   const [from, to] = h.details.split(' → ');
-  const what = h.event === 'status' && to ? `changed the <b>Status</b> from <b>${esc(from)}</b> to <b>${esc(to)}</b>` : `<b>${esc(h.event)}</b> ${esc(h.details)}`;
-  return `<li class="item"><div class="avatar sys">⟳</div><div class="hist">Me ${what}<div class="meta">${esc(h.at)}</div></div></li>`;
+  const what = h.event === 'status' && to ? `изменил <b>статус</b> с <b>${esc(SL(from))}</b> на <b>${esc(SL(to))}</b>` : `<b>${esc(h.event)}</b> ${esc(h.details)}`;
+  return `<li class="item"><div class="avatar sys">⟳</div><div class="hist">Я ${what}<div class="meta">${esc(h.at)}</div></div></li>`;
 }
 function mailItemHtml(m) {
   const rec = mailRows.get(m.id), [cls, label] = KIND_BADGE[m.kind], to = suggestion(m);
   return `<li class="item" data-msg="${esc(m.id)}"><div class="avatar mail">✉</div><div>
-    <div class="who"><b>${esc(senderName(m.from))}</b><span class="lozenge ${cls}">${label}</span> <span class="meta">${esc(localStamp(m.date).slice(0, 16))}${rec ? ' · ' + esc(rec.verdict) : ''}</span></div>
+    <div class="who"><b>${esc(senderName(m.from))}</b><span class="lozenge ${cls}">${label}</span> <span class="meta">${esc(localStamp(m.date).slice(0, 16))}${rec ? ' · ' + esc(VERDICT[rec.verdict] || rec.verdict) : ''}</span></div>
     <div class="text"><b>${esc(m.subject)}</b>\n${esc(m.snippet)}</div><pre class="body" hidden></pre>
-    <div class="links">${to ? `<button data-act="accept">→ ${esc(to)}</button>` : ''}<button data-act="peek">Read</button>
-      ${!rec ? '<button data-act="save">Save as company reply</button><button data-act="dismiss">Dismiss</button>' : ''}
-      <a href="${gmailLink(m)}" target="_blank" rel="noopener">Open in Gmail ↗</a></div></div></li>`;
+    <div class="links">${to ? `<button data-act="accept">→ ${esc(SL(to))}</button>` : ''}<button data-act="peek">Читать</button>
+      ${!rec ? '<button data-act="save">Сохранить как ответ компании</button><button data-act="dismiss">Скрыть</button>' : ''}
+      <a href="${gmailLink(m)}" target="_blank" rel="noopener">Открыть в Gmail ↗</a></div></div></li>`;
 }
 function renderFeed() {
   const j = byId(openId), el = $('#feed'); if (!j || !el) return;
   const dir = (a, b) => (a < b ? -1 : a > b ? 1 : 0) * (newestFirst ? -1 : 1);
   if (tab === 'mail') {
-    if (jobMail.id !== j.id || !jobMail.list) { el.innerHTML = `<li class="muted">${jobMail.error ? 'Could not read Gmail: ' + esc(jobMail.error) : 'Reading Gmail…'}</li>`; return; }
+    if (jobMail.id !== j.id || !jobMail.list) { el.innerHTML = `<li class="muted">${jobMail.error ? 'Не удалось прочитать Gmail: ' + esc(jobMail.error) : 'Читаю Gmail…'}</li>`; return; }
     const list = jobMail.list.slice().sort((a, b) => dir(a.date, b.date));
-    el.innerHTML = list.length ? list.map(mailItemHtml).join('') : `<li class="muted">No mail found for <code>${esc(jobMail.q || '—')}</code>. Set a mail search on the right, e.g. <code>from:company.com</code>.</li>`;
+    el.innerHTML = list.length ? list.map(mailItemHtml).join('') : `<li class="muted">Писем по запросу <code>${esc(jobMail.q || '—')}</code> не найдено. Задайте поиск справа, например <code>from:company.com</code>.</li>`;
     return;
   }
   const items = [
     ...(tab !== 'history' ? commentsOf(j.id).map(c => ({ at: c.at, html: commentHtml(c) })) : []),
     ...(tab !== 'comments' ? history.filter(h => h.id === j.id).map(h => ({ at: h.at, html: historyHtml(h) })) : []),
   ].sort((a, b) => dir(a.at, b.at));
-  el.innerHTML = items.length ? items.map(i => i.html).join('') : `<li class="muted">${tab === 'history' ? 'No status changes yet.' : 'No comments yet. Add a note, the cover letter you sent, the company reply, or attach your resume.'}</li>`;
+  el.innerHTML = items.length ? items.map(i => i.html).join('') : `<li class="muted">${tab === 'history' ? 'Статус ещё не менялся.' : 'Комментариев пока нет. Добавьте заметку, отправленное сопроводительное, ответ компании или приложите резюме.'}</li>`;
 }
 async function loadJobMail() {
   const j = byId(openId); if (!j) return;
@@ -919,15 +926,15 @@ async function loadJobMail() {
 
 async function submitComment(j) {
   const text = $('#newText').value.replace(/\s+$/, ''), kind = $('#newKind').value, file = $('#newFile').files[0], st = $('#addState');
-  if (!text && !file) { st.textContent = 'Write something or attach a file'; return; }
-  if (file && file.size > 25 * 1024 * 1024) { st.textContent = 'File is larger than 25 MB'; return; }
-  $('#addBtn').disabled = true; st.textContent = file ? 'Uploading…' : 'Saving…';
+  if (!text && !file) { st.textContent = 'Напишите текст или приложите файл'; return; }
+  if (file && file.size > 25 * 1024 * 1024) { st.textContent = 'Файл больше 25 МБ'; return; }
+  $('#addBtn').disabled = true; st.textContent = file ? 'Загружаю…' : 'Сохраняю…';
   try {
     await addComment(j, kind, text, file);
     if (openId === j.id && $('#newText')) { $('#newText').value = ''; $('#newFile').value = ''; $('#composer').classList.add('idle'); st.textContent = ''; }
     render(); refreshDrawer();
   } catch (e) {
-    if (document.contains(st)) { st.textContent = 'Not saved: ' + e.message; $('#addBtn').disabled = false; } else toast('Comment not saved: ' + e.message);
+    if (document.contains(st)) { st.textContent = 'Не сохранено: ' + e.message; $('#addBtn').disabled = false; } else toast('Комментарий не сохранён: ' + e.message);
   }
 }
 
@@ -942,8 +949,8 @@ async function mailAction(btn) {
     const pre = host.querySelector('pre.body');
     if (!pre) { tab = 'mail'; openDrawer(m.job_id); return; }
     if (!pre.hidden) { pre.hidden = true; return; }
-    pre.hidden = false; pre.textContent = 'Loading…';
-    try { pre.textContent = await gmailBody(m.id); } catch (e) { pre.textContent = 'Could not load: ' + e.message; }
+    pre.hidden = false; pre.textContent = 'Загрузка…';
+    try { pre.textContent = await gmailBody(m.id); } catch (e) { pre.textContent = 'Не удалось загрузить: ' + e.message; }
     return;
   }
   btn.disabled = true;
@@ -952,13 +959,21 @@ async function mailAction(btn) {
     if (act === 'dismiss') { await dismissMail(m.id); }
     if (act === 'save') {
       const j = byId(host.querySelector('select[data-link]')?.value || m.job_id);
-      if (!j) { toast('Pick the job first'); return; }
+      if (!j) { toast('Сначала выберите вакансию'); return; }
       await saveMailAsReply(m, j, 'linked'); m.job_id = j.id;
-      toast(`Saved to ${j.company} as a company reply`); render(); refreshDrawer();
+      toast(`Сохранено в ${j.company} как ответ компании`); render(); refreshDrawer();
     }
   } catch (e) { if (!(e instanceof AuthError)) toast(e.message); } finally { btn.disabled = false; }
 }
 
+// When the hour-long token runs out the board stays on screen; the next click (a user gesture, so no popup blocker) renews it.
+let renewing = false;
+document.addEventListener('click', e => {
+  if (token || !loaded || renewing || e.target.id === 'signin') return;
+  e.preventDefault(); e.stopPropagation(); renewing = true;
+  signIn().then(() => { toast('Вход продлён'); render(); refreshDrawer(); if (inboxState !== 'done') scanInbox(); })
+    .catch(err => toast('Не удалось продлить вход: ' + err.message)).finally(() => renewing = false);
+}, true);
 document.addEventListener('click', e => {
   const t = e.target;
   if (t.closest('[data-msg] [data-act]')) { e.stopPropagation(); return mailAction(t.closest('[data-act]')); }
@@ -966,7 +981,7 @@ document.addEventListener('click', e => {
   if (nav) { view = nav.dataset.view; store.set('kb.view', view); return render(); }
   if (t.closest('#reload')) return run(load());
   if (t.id === 'signin') { $('#gateErr').textContent = ''; return signIn().then(() => { render(); return load(); }).catch(err => { const g = $('#gateErr'); if (g) g.textContent = err.message; }); }
-  if (t.id === 'sheetSave') { const m = /\/d\/([\w-]{20,})/.exec($('#sheetUrl').value) || /^([\w-]{20,})$/.exec($('#sheetUrl').value.trim()); if (!m) return toast('That does not look like a Google Sheets link'); sheetId = m[1]; store.set('kb.sheet', sheetId); return render(); }
+  if (t.id === 'sheetSave') { const m = /\/d\/([\w-]{20,})/.exec($('#sheetUrl').value) || /^([\w-]{20,})$/.exec($('#sheetUrl').value.trim()); if (!m) return toast('Это не похоже на ссылку на Google Таблицу'); sheetId = m[1]; store.set('kb.sheet', sheetId); return render(); }
   const chip = t.closest('[data-chip]');
   if (chip) { if (chip.dataset.chip === 'hideClosed') { hideClosed = !hideClosed; store.set('kb.hideClosed', hideClosed ? '1' : '0'); } else { F.paid = !F.paid; store.set('kb.filters', JSON.stringify(F)); } return render(); }
   if (t.id === 'resetF') { Object.assign(F, { wave: 'active', tier: '', ctype: '', region: '', fstatus: '', paid: false }); hideClosed = false; store.set('kb.hideClosed', '0'); store.set('kb.filters', JSON.stringify(F)); $('#q').value = ''; return render(); }
@@ -978,12 +993,12 @@ document.addEventListener('click', e => {
   if (t.id === 'dclose' || t.id === 'dbg') return closeDrawer();
   const tb = t.closest('.tabs [data-tab]');
   if (tb) { tab = tb.dataset.tab; store.set('kb.tab', tab); drawerHtml(); if (tab === 'mail' && jobMail.id !== openId) loadJobMail(); return; }
-  if (t.id === 'order') { newestFirst = !newestFirst; store.set('kb.newest', newestFirst ? '1' : '0'); $('#order').textContent = newestFirst ? 'Newest first ↓' : 'Oldest first ↑'; return renderFeed(); }
+  if (t.id === 'order') { newestFirst = !newestFirst; store.set('kb.newest', newestFirst ? '1' : '0'); $('#order').textContent = newestFirst ? 'Сначала новые ↓' : 'Сначала старые ↑'; return renderFeed(); }
   if (t.id === 'addBtn') return submitComment(byId(openId));
   if (t.id === 'cancelBtn') { $('#newText').value = ''; $('#newFile').value = ''; $('#addState').textContent = ''; return $('#composer').classList.add('idle'); }
   if (t.id === 'mailQSave') {
-    const j = byId(openId), v = $('#mailQ').value.trim(); $('#mailQState').textContent = 'Saving…';
-    return setFields(j, { mail_query: T(v) }).then(() => { j.mail_query = v; $('#mailQState').textContent = 'Saved'; loadJobMail(); }).catch(err => { $('#mailQState').textContent = 'Not saved: ' + err.message; });
+    const j = byId(openId), v = $('#mailQ').value.trim(); $('#mailQState').textContent = 'Сохраняю…';
+    return setFields(j, { mail_query: T(v) }).then(() => { j.mail_query = v; $('#mailQState').textContent = 'Сохранено'; loadJobMail(); }).catch(err => { $('#mailQState').textContent = 'Не сохранено: ' + err.message; });
   }
   const fb = t.closest('#feed [data-cid] [data-act]');
   if (fb) return commentAction(fb);
@@ -996,14 +1011,14 @@ async function commentAction(btn) {
   if (act === 'edit') { editing = c.cid; renderFeed(); return $('#feed .editText')?.focus(); }
   if (act === 'cancel') { editing = null; return renderFeed(); }
   if (act === 'save') {
-    li.querySelector('.state').textContent = 'Saving…';
+    li.querySelector('.state').textContent = 'Сохраняю…';
     try { await editComment(c, li.querySelector('.editKind').value, li.querySelector('.editText').value.replace(/\s+$/, '')); editing = null; render(); renderFeed(); }
-    catch (e) { li.querySelector('.state').textContent = 'Not saved: ' + e.message; }
+    catch (e) { li.querySelector('.state').textContent = 'Не сохранено: ' + e.message; }
   }
   if (act === 'delete') {
-    if (btn.dataset.confirm !== '1') { btn.dataset.confirm = '1'; btn.textContent = 'Click again to delete'; btn.style.color = 'var(--red)'; return; }
-    btn.textContent = 'Deleting…';
-    try { await deleteComment(c); render(); renderFeed(); } catch (e) { btn.textContent = 'Not deleted: ' + e.message; }
+    if (btn.dataset.confirm !== '1') { btn.dataset.confirm = '1'; btn.textContent = 'Нажмите ещё раз для удаления'; btn.style.color = 'var(--red)'; return; }
+    btn.textContent = 'Удаляю…';
+    try { await deleteComment(c); render(); renderFeed(); } catch (e) { btn.textContent = 'Не удалено: ' + e.message; }
   }
 }
 
